@@ -290,7 +290,7 @@ Adapter.extend({
     const countQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
         setSqlSchema('PUBLIC'));
-    const result = await cache.query(countQuery).getAll()
+    const result = (await cache.query(countQuery)).getAll()
 
     console.log(result)
     return [result[0][0], {}];
@@ -311,7 +311,7 @@ Adapter.extend({
     const createQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const result = await cache.query(createQuery).getAll()
+    const result = (await cache.query(createQuery)).getAll()
 
     console.log(result)
     return this._find(mapper, props[idAttribute], opts)
@@ -341,7 +341,7 @@ Adapter.extend({
     const destroyQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
         setSqlSchema('PUBLIC'));
-    const result = await cache.query(destroyQuery).getAll()
+    const result = (await cache.query(destroyQuery)).getAll()
     
     console.log(result)
     return [undefined, {}];
@@ -361,7 +361,7 @@ Adapter.extend({
     const destroyAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const result = await cache.query(destroyAllQuery).getAll()
+    const result = (await cache.query(destroyAllQuery)).getAll()
 
     console.log(result)
     return [undefined, {}];
@@ -383,7 +383,7 @@ Adapter.extend({
     const findQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const result = await cache.query(findQuery).getAll()
+    const result = (await cache.query(findQuery)).getAll()
 
     console.log(result)
     
@@ -401,7 +401,7 @@ Adapter.extend({
     const findAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const records = await cache.query(findAllQuery).getAll()
+    const result = (await cache.query(findAllQuery)).getAll()
 
     console.log(result)
 
@@ -426,7 +426,7 @@ Adapter.extend({
     const sumQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const result = await cache.query(sumQuery).getAll()
+    const result = (await cache.query(sumQuery)).getAll()
 
     return [result[0][0], {}]
   },
@@ -446,7 +446,7 @@ Adapter.extend({
     const updateQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
       setSqlSchema('PUBLIC'));
-    const result = await cache.query(updateQuery).getAll()
+    const result = (await cache.query(updateQuery)).getAll()
 
     console.log(result)
     
@@ -471,7 +471,7 @@ Adapter.extend({
       const updateAllQuery = new SqlFieldsQuery(sqlText)
       const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
         setSqlSchema('PUBLIC'));
-      const result = await cache.query(updateAllQuery).getAll()
+      const result = (await cache.query(updateAllQuery)).getAll()
 
       console.log(result)
 
