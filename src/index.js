@@ -8,13 +8,13 @@ import {
 import toString from 'lodash.tostring'
 import snakeCase from 'lodash.snakecase'
 
-const IgniteClient = require('apache-ignite-client');
+const IgniteClient = require('apache-ignite-client')
 
-const IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration;
+const IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration
 
-const SqlFieldsQuery = IgniteClient.SqlFieldsQuery;
+const SqlFieldsQuery = IgniteClient.SqlFieldsQuery
 
-const CacheConfiguration = IgniteClient.CacheConfiguration;
+const CacheConfiguration = IgniteClient.CacheConfiguration
 
 const DEFAULTS = {}
 
@@ -175,6 +175,7 @@ export function IgniteAdapter (opts) {
   utils.classCallCheck(this, IgniteAdapter)
   opts || (opts = {})
   opts.knexOpts || (opts.knexOpts = {})
+  opts.igniteOpts || (opts.igniteOpts = {})
   utils.fillIn(opts, DEFAULTS)
 
   Object.defineProperties(this, {
@@ -186,7 +187,7 @@ export function IgniteAdapter (opts) {
     igniteClient: {
       writable: true,
       value: undefined
-    }    
+    }
   })
 
   Adapter.call(this, opts)
@@ -210,43 +211,66 @@ export function IgniteAdapter (opts) {
   this.operators || (this.operators = {})
   utils.fillIn(this.operators, OPERATORS)
 
-  this.igniteOpts || (this.igniteOpts = {})
+  // this.igniteOpts || (this.igniteOpts = {})
 
-  this.igniteClient || (this.igniteClient = new IgniteClient());
-  this.igniteClient  = new IgniteClient();
+  this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener))
+  // this.igniteClient  = new IgniteClient();
 
-  const igniteClientConfiguration = new IgniteClientConfiguration(this.igniteOpts.endpoints).
-    setUserName(this.igniteOpts.username).
-    setPassword(this.igniteOpts.password).
-    setConnectionOptions(this.igniteOpts.useTLS, this.igniteOpts.connectionOptions);
+  const igniteClientConfiguration = new IgniteClientConfiguration(...opts.igniteOpts.endpoints)
+    .setUserName(opts.igniteOpts.username)
+    .setPassword(opts.igniteOpts.password)
+    .setConnectionOptions(opts.igniteOpts.useTLS, opts.igniteOpts.connectionOptions)
 
-  await igniteClient.connect(igniteClientConfiguration);
+  this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration)
+
+  this.igniteClient.connect(this.igniteClientConfiguration)
+  // await igniteClient.connect(igniteClientConfiguration);
 }
+
+// async function connect () {
+//   return this.igniteClient.connect(this.igniteClientConfiguration)
+// }
 
 function getTable (mapper) {
   return mapper.table || snakeCase(mapper.name)
 }
 
 function getCacheName (mapper) {
-  return "SQL_PUBLIC_" + getTable(mapper).toUpperCase();
+  return 'SQL_PUBLIC_' + getTable(mapper).toUpperCase()
 }
 
-function translateToKnex (mapper, values) {
-  const fields = mapper.schema.properties;
-  
-  const result = {}
-  let i = 0;
-
-  const fieldsColumn = [];
-  const fieldsNames = [];
+function getFields (mapper, sqlBuilder) {
+  const fields = mapper.schema.properties
+  const table = getTable(mapper)
 
   for (const field in fields) {
     if (fields.hasOwnProperty(field)) {
-      result[field] = values[i++]
+      sqlBuilder = sqlBuilder.select(`${table}.${field}`)
     }
   }
 
-  return result;
+  return sqlBuilder
+}
+
+function translateToKnex (mapper, values) {
+  if (!values.length) {
+    return null
+  }
+
+  const fields = mapper.schema.properties
+
+  const result = {}
+  let i = 0
+
+  console.log(values)
+
+  for (const field in fields) {
+    if (fields.hasOwnProperty(field)) {
+      result[field] = fields[field].type === 'array' ? JSON.parse(values[i++].replace(/\\/g, '')) : values[i++]
+    }
+  }
+
+  return result
 }
 
 /**
@@ -276,7 +300,11 @@ IgniteAdapter.extend = utils.extend
 Adapter.extend({
   constructor: IgniteAdapter,
 
-  _count (mapper, query, opts) {
+  async connect () {
+    return this.igniteClient.connect(this.igniteClientConfiguration)
+  },
+
+  async _count (mapper, query, opts) {
     opts || (opts = {})
     query || (query = {})
 
@@ -288,109 +316,138 @@ Adapter.extend({
     console.log(sqlText)
 
     const countQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-        setSqlSchema('PUBLIC'));
-    const result = (await cache.query(countQuery)).getAll()
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+        .setSqlSchema('PUBLIC'))
+    const result = await (await cache.query(countQuery)).getAll()
 
-    console.log(result)
-    return [result[0][0], {}];
+    return [result[0][0], {}]
   },
 
-  _create (mapper, props, opts) {
+  async _create (mapper, props, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     opts || (opts = {})
 
+    for (const field in props) {
+      if (props.hasOwnProperty(field)) {
+        const element = props[field]
+        if (Array.isArray(element)) {
+          props[field] = JSON.stringify(element)
+        }
+      }
+    }
+
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const sqlText = sqlBuilder(getTable(mapper))
-      .insert(props, idAttribute)
+      .insert(props)
+      .toString()
+
+    const createQuery = new SqlFieldsQuery(sqlText)
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    await cache.query(createQuery)
+
+    return this._find(mapper, props[idAttribute], opts)
+  },
+
+  async _createMany (mapper, props, opts) {
+    props || (props = {})
+    opts || (opts = {})
+
+    props = props.map((singleProps) => {
+      for (const field in singleProps) {
+        if (singleProps.hasOwnProperty(field)) {
+          const element = singleProps[field]
+          if (Array.isArray(element)) {
+            singleProps[field] = JSON.stringify(element)
+          }
+        }
+      }
+      return singleProps
+    })
+
+    const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
+    const sqlText = sqlBuilder(getTable(mapper))
+      .insert(props)
       .toString()
 
     console.log(sqlText)
 
     const createQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(createQuery)).getAll()
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    await cache.query(createQuery)
 
-    console.log(result)
-    return this._find(mapper, props[idAttribute], opts)
+    const query = {
+      where: {
+        [mapper.idAttribute]: {
+          'in': props.map((singleProps) => singleProps[mapper.idAttribute])
+        }
+      }
+    }
+
+    return this._findAll(mapper, query, opts)
   },
 
-  _createMany (mapper, props, opts) {
-    props || (props = {})
+  async _destroy (mapper, id, opts) {
     opts || (opts = {})
 
-    const tasks = props.map((record) => this._create(mapper, record, opts))
-    const result =  Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
-
-    return result;
-  },
-
-  _destroy (mapper, id, opts) {
-    opts || (opts = {})
-
+    const record = await this._find(mapper, id, opts)
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const sqlText = sqlBuilder(getTable(mapper))
       .where(mapper.idAttribute, toString(id))
       .del()
       .toString()
 
-    console.log(sqlText)
-
     const destroyQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-        setSqlSchema('PUBLIC'));
-    const result = (await cache.query(destroyQuery)).getAll()
-    
-    console.log(result)
-    return [undefined, {}];
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+        .setSqlSchema('PUBLIC'))
+    await cache.query(destroyQuery)
+
+    return record
   },
 
-  _destroyAll (mapper, query, opts) {
+  async _destroyAll (mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
+    const records = await this._findAll(mapper, query, opts)
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
-    const sqlText =  this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
+    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
       .del()
       .toString()
 
     console.log(sqlText)
 
     const destroyAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(destroyAllQuery)).getAll()
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    await cache.query(destroyAllQuery)
 
-    console.log(result)
-    return [undefined, {}];
+    return records
   },
 
-  _find (mapper, id, opts) {
+  async _find (mapper, id, opts) {
     opts || (opts = {})
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const table = getTable(mapper)
-    const sqlText = sqlBuilder
-      .select(`${table}.*`)
+    const sqlText = getFields(mapper, sqlBuilder)
       .from(table)
       .where(`${table}.${mapper.idAttribute}`, toString(id))
       .toString()
 
     console.log(sqlText)
-    
-    const findQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(findQuery)).getAll()
 
-    console.log(result)
-    
-    return [ this.translateToKnex(mapper, result[0]), {} ];
+    const findQuery = new SqlFieldsQuery(sqlText)
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    const result = await (await cache.query(findQuery)).getAll()
+
+    return [ translateToKnex(mapper, result[0]), {} ]
   },
 
-  _findAll (mapper, query, opts) {
+  async _findAll (mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
@@ -399,19 +456,17 @@ Adapter.extend({
     console.log(sqlText)
 
     const findAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(findAllQuery)).getAll()
-
-    console.log(result)
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    const records = await (await cache.query(findAllQuery)).getAll()
 
     const result = records.map((record) => {
-      this.translateToKnex(mapper, record)
+      return translateToKnex(mapper, record)
     })
-    return [ result, {} ];
+    return [ result, {} ]
   },
 
-  _sum (mapper, field, query, opts) {
+  async _sum (mapper, field, query, opts) {
     if (!utils.isString(field)) {
       throw new Error('field must be a string!')
     }
@@ -423,18 +478,30 @@ Adapter.extend({
       .sum(`${field} as sum`)
       .toString()
 
+    console.log(sqlText)
+
     const sumQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(sumQuery)).getAll()
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    const result = await (await cache.query(sumQuery)).getAll()
 
     return [result[0][0], {}]
   },
 
-  _update (mapper, id, props, opts) {
+  async _update (mapper, id, props, opts) {
     props || (props = {})
     opts || (opts = {})
 
+    for (const field in props) {
+      if (props.hasOwnProperty(field)) {
+        const element = props[field]
+        if (Array.isArray(element)) {
+          props[field] = JSON.stringify(element)
+        }
+      }
+    }
+
+    delete props[mapper.idAttribute]
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const sqlText = sqlBuilder(getTable(mapper))
       .where(mapper.idAttribute, toString(id))
@@ -442,57 +509,53 @@ Adapter.extend({
       .toString()
 
     console.log(sqlText)
-  
-    const updateQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-      setSqlSchema('PUBLIC'));
-    const result = (await cache.query(updateQuery)).getAll()
 
-    console.log(result)
-    
-    return this._find(mapper, id, opts);
+    const updateQuery = new SqlFieldsQuery(sqlText)
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    await cache.query(updateQuery)
+
+    return this._find(mapper, id, opts)
   },
 
-  _updateAll (mapper, props, query, opts) {
+  async _updateAll (mapper, props, query, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     query || (query = {})
     opts || (opts = {})
 
-    let ids
-
-    return this._findAll(mapper, query, opts).then((result) => {
-      const records = result[0]
-      ids = records.map((record) => record[idAttribute])
-      const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
-      
-      const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString()
-
-      const updateAllQuery = new SqlFieldsQuery(sqlText)
-      const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().
-        setSqlSchema('PUBLIC'));
-      const result = (await cache.query(updateAllQuery)).getAll()
-
-      console.log(result)
-
-      return result;      
+    props = props.map((singleProps) => {
+      delete singleProps[idAttribute]
+      return singleProps
     })
-    .then(() => {
-      const _query = { where: {} }
-      _query.where[idAttribute] = { 'in': ids }
-      return this._findAll(mapper, _query, opts)
-    })
+
+    const result = await this._findAll(mapper, query, opts)
+
+    const records = result[0]
+    const ids = records.map((record) => record[idAttribute])
+    const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
+
+    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString()
+
+    const updateAllQuery = new SqlFieldsQuery(sqlText)
+    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
+      .setSqlSchema('PUBLIC'))
+    await cache.query(updateAllQuery)
+    // const updated = await (await cache.query(updateAllQuery)).getAll()
+
+    const _query = { where: {} }
+    _query.where[idAttribute] = { 'in': ids }
+    return this._findAll(mapper, _query, opts)
   },
 
-  _updateMany (mapper, records, opts) {
+  async _updateMany (mapper, records, opts) {
     const idAttribute = mapper.idAttribute
     records || (records = [])
     opts || (opts = {})
 
     const tasks = records.map((record) => this._update(mapper, record[idAttribute], record, opts))
-    const result = Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
 
-    return result;
+    return Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
   },
 
   applyWhereFromObject (sqlBuilder, where, opts) {
@@ -643,7 +706,8 @@ Adapter.extend({
     opts || (opts = {})
     const query = utils.isUndefined(opts.query) ? this.knex : opts.query
     const table = this.getTable(mapper)
-    return query.select(`${table}.*`).from(table)
+    return getFields(mapper, query).from(table)
+    // return query.select(getFields(mapper)).from(table)
   }
 })
 
