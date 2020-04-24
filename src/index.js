@@ -169,7 +169,7 @@ Object.freeze(OPERATORS)
  * @param {Object} [opts.operators] See {@link IgniteAdapter#operators}.
  * @param {boolean} [opts.raw=false] See {@link Adapter#raw}.
  */
-export function IgniteAdapter(opts) {
+export function IgniteAdapter (opts) {
   utils.classCallCheck(this, IgniteAdapter)
   opts || (opts = {})
   opts.knexOpts || (opts.knexOpts = {})
@@ -233,15 +233,15 @@ export function IgniteAdapter(opts) {
 //   return this.igniteClient.connect(this.igniteClientConfiguration)
 // }
 
-function getTable(mapper) {
+function getTable (mapper) {
   return mapper.table || snakeCase(mapper.name)
 }
 
-function getCacheName(mapper) {
+function getCacheName (mapper) {
   return 'SQL_PUBLIC_' + getTable(mapper).toUpperCase()
 }
 
-function getFields(mapper, sqlBuilder) {
+function getFields (mapper, sqlBuilder) {
   const fields = mapper.schema.properties
   const table = getTable(mapper)
 
@@ -254,7 +254,7 @@ function getFields(mapper, sqlBuilder) {
   return sqlBuilder
 }
 
-function translateToKnex(mapper, values) {
+function translateToKnex (mapper, values) {
   if (!values || !values.length) {
     return null
   }
@@ -300,11 +300,11 @@ IgniteAdapter.extend = utils.extend
 Adapter.extend({
   constructor: IgniteAdapter,
 
-  async connect() {
+  async connect () {
     return this.igniteClient.connect(this.igniteClientConfiguration)
   },
 
-  async _count(mapper, query, opts) {
+  async _count (mapper, query, opts) {
     opts || (opts = {})
     query || (query = {})
 
@@ -320,7 +320,7 @@ Adapter.extend({
     return [result[0][0], {}]
   },
 
-  async _create(mapper, props, opts) {
+  async _create (mapper, props, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     opts || (opts = {})
@@ -346,7 +346,7 @@ Adapter.extend({
     return this._find(mapper, props[idAttribute], opts)
   },
 
-  async _createMany(mapper, props, opts) {
+  async _createMany (mapper, props, opts) {
     props || (props = {})
     opts || (opts = {})
 
@@ -382,7 +382,7 @@ Adapter.extend({
     return this._findAll(mapper, query, opts)
   },
 
-  async _destroy(mapper, id, opts) {
+  async _destroy (mapper, id, opts) {
     opts || (opts = {})
 
     const record = await this._find(mapper, id, opts)
@@ -399,7 +399,7 @@ Adapter.extend({
     return record
   },
 
-  async _destroyAll(mapper, query, opts) {
+  async _destroyAll (mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
@@ -416,7 +416,7 @@ Adapter.extend({
     return records
   },
 
-  async _find(mapper, id, opts) {
+  async _find (mapper, id, opts) {
     opts || (opts = {})
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
@@ -434,7 +434,7 @@ Adapter.extend({
     return [translateToKnex(mapper, result[0]), {}]
   },
 
-  async _findAll(mapper, query, opts) {
+  async _findAll (mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
@@ -451,7 +451,7 @@ Adapter.extend({
     return [result, {}]
   },
 
-  async _sum(mapper, field, query, opts) {
+  async _sum (mapper, field, query, opts) {
     if (!utils.isString(field)) {
       throw new Error('field must be a string!')
     }
@@ -462,7 +462,7 @@ Adapter.extend({
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
       .sum(`${field} as sum`)
       .toString()
-    
+
     const sumQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(sumQuery)).getAll()
@@ -470,7 +470,7 @@ Adapter.extend({
     return [result[0][0], {}]
   },
 
-  async _update(mapper, id, props, opts) {
+  async _update (mapper, id, props, opts) {
     props || (props = {})
     opts || (opts = {})
 
@@ -497,7 +497,7 @@ Adapter.extend({
     return this._find(mapper, id, opts)
   },
 
-  async _updateAll(mapper, props, query, opts) {
+  async _updateAll (mapper, props, query, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     query || (query = {})
@@ -525,7 +525,7 @@ Adapter.extend({
     return this._findAll(mapper, _query, opts)
   },
 
-  async _updateMany(mapper, records, opts) {
+  async _updateMany (mapper, records, opts) {
     const idAttribute = mapper.idAttribute
     records || (records = [])
     opts || (opts = {})
@@ -535,7 +535,7 @@ Adapter.extend({
     return Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
   },
 
-  applyWhereFromObject(sqlBuilder, where, opts) {
+  applyWhereFromObject (sqlBuilder, where, opts) {
     utils.forOwn(where, (criteria, field) => {
       if (!utils.isObject(criteria)) {
         criteria = { '==': criteria }
@@ -558,7 +558,7 @@ Adapter.extend({
     return sqlBuilder
   },
 
-  applyWhereFromArray(sqlBuilder, where, opts) {
+  applyWhereFromArray (sqlBuilder, where, opts) {
     where.forEach((_where, i) => {
       if (_where === 'and' || _where === 'or') {
         return
@@ -585,7 +585,7 @@ Adapter.extend({
     return sqlBuilder
   },
 
-  filterQuery(sqlBuilder, query, opts) {
+  filterQuery (sqlBuilder, query, opts) {
     query = utils.plainCopy(query || {})
     opts || (opts = {})
     opts.operators || (opts.operators = {})
@@ -656,18 +656,18 @@ Adapter.extend({
    * for specified operators.
    * @return {*} The predicate function for the specified operator.
    */
-  getOperator(operator, opts) {
+  getOperator (operator, opts) {
     opts || (opts = {})
     opts.operators || (opts.operators = {})
     let ownOps = this.operators || {}
     return utils.isUndefined(opts.operators[operator]) ? ownOps[operator] : opts.operators[operator]
   },
 
-  getTable(mapper) {
+  getTable (mapper) {
     return mapper.table || snakeCase(mapper.name)
   },
 
-  selectTable(mapper, opts) {
+  selectTable (mapper, opts) {
     opts || (opts = {})
     const query = utils.isUndefined(opts.query) ? this.knex : opts.query
     const table = this.getTable(mapper)

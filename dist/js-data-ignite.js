@@ -111,8 +111,6 @@ var IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration;
 
 var SqlFieldsQuery = IgniteClient.SqlFieldsQuery;
 
-var CacheConfiguration = IgniteClient.CacheConfiguration;
-
 var DEFAULTS = {};
 
 var equal = function equal(query, field, value, isOr) {
@@ -310,6 +308,10 @@ function IgniteAdapter(opts) {
   this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener));
   // this.igniteClient  = new IgniteClient();
 
+  if (opts.igniteOpts.debug) {
+    this.igniteClient.setDebug(true);
+  }
+
   var igniteClientConfiguration = new (Function.prototype.bind.apply(IgniteClientConfiguration, [null].concat(toConsumableArray(opts.igniteOpts.endpoints))))().setUserName(opts.igniteOpts.username).setPassword(opts.igniteOpts.password).setConnectionOptions(opts.igniteOpts.useTLS, opts.igniteOpts.connectionOptions);
 
   this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration);
@@ -344,7 +346,7 @@ function getFields(mapper, sqlBuilder) {
 }
 
 function translateToKnex(mapper, values) {
-  if (!values.length) {
+  if (!values || !values.length) {
     return null;
   }
 
@@ -352,8 +354,6 @@ function translateToKnex(mapper, values) {
 
   var result = {};
   var i = 0;
-
-  console.log(values);
 
   for (var field in fields) {
     if (fields.hasOwnProperty(field)) {
@@ -401,10 +401,8 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).count('* as count').toString();
 
-    console.log(sqlText);
-
     var countQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(countQuery)).getAll();
 
     return [result[0][0], {}];
@@ -427,7 +425,7 @@ jsDataAdapter.Adapter.extend({
     var sqlText = sqlBuilder(getTable(mapper)).insert(props).toString();
 
     var createQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(createQuery);
 
     return this._find(mapper, props[idAttribute], opts);
@@ -451,10 +449,8 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).insert(props).toString();
 
-    console.log(sqlText);
-
     var createQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(createQuery);
 
     var query = {
@@ -475,7 +471,7 @@ jsDataAdapter.Adapter.extend({
     var sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id)).del().toString();
 
     var destroyQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyQuery);
 
     return record;
@@ -488,10 +484,8 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).del().toString();
 
-    console.log(sqlText);
-
     var destroyAllQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyAllQuery);
 
     return records;
@@ -503,10 +497,9 @@ jsDataAdapter.Adapter.extend({
     var table = getTable(mapper);
     var sqlText = getFields(mapper, sqlBuilder).from(table).where(table + '.' + mapper.idAttribute, toString(id)).toString();
 
-    console.log(sqlText);
-
     var findQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(findQuery)).getAll();
 
     return [translateToKnex(mapper, result[0]), {}];
@@ -517,15 +510,14 @@ jsDataAdapter.Adapter.extend({
 
     var sqlText = this.filterQuery(this.selectTable(mapper, opts), query, opts).toString();
 
-    console.log(sqlText);
-
     var findAllQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
-    var records = await (await cache.query(findAllQuery)).getAll();
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
 
+    var records = await (await cache.query(findAllQuery)).getAll();
     var result = records.map(function (record) {
       return translateToKnex(mapper, record);
     });
+
     return [result, {}];
   },
   _sum: async function _sum(mapper, field, query, opts) {
@@ -538,10 +530,8 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).sum(field + ' as sum').toString();
 
-    console.log(sqlText);
-
     var sumQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(sumQuery)).getAll();
 
     return [result[0][0], {}];
@@ -563,10 +553,8 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id)).update(props).toString();
 
-    console.log(sqlText);
-
     var updateQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateQuery);
 
     return this._find(mapper, id, opts);
@@ -593,9 +581,8 @@ jsDataAdapter.Adapter.extend({
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString();
 
     var updateAllQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration().setSqlSchema('PUBLIC'));
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateAllQuery);
-    // const updated = await (await cache.query(updateAllQuery)).getAll()
 
     var _query = { where: {} };
     _query.where[idAttribute] = { 'in': ids };
@@ -725,18 +712,6 @@ jsDataAdapter.Adapter.extend({
     }
 
     return sqlBuilder;
-    // if (!isEmpty(params.where)) {
-    //   forOwn(params.where, (criteria, field) => {
-    //     if (contains(field, '.')) {
-    //       if (contains(field, ',')) {
-    //         let splitFields = field.split(',').map(c => c.trim())
-    //         field = splitFields.map(splitField => processRelationField.call(this, resourceConfig, query, splitField, criteria, options, joinedTables)).join(',')
-    //       } else {
-    //         field = processRelationField.call(this, resourceConfig, query, field, criteria, options, joinedTables)
-    //       }
-    //     }
-    //   })
-    // }
   },
 
 
@@ -766,18 +741,17 @@ jsDataAdapter.Adapter.extend({
     var query = jsData.utils.isUndefined(opts.query) ? this.knex : opts.query;
     var table = this.getTable(mapper);
     return getFields(mapper, query).from(table);
-    // return query.select(getFields(mapper)).from(table)
   }
 });
 
 /**
- * Details of the current version of the `js-data-sql` module.
+ * Details of the current version of the `js-data-ignite` module.
  *
  * @example
- * import { version } from 'js-data-sql';
+ * import { version } from 'js-data-ignite';
  * console.log(version.full);
  *
- * @name module:js-data-sql.version
+ * @name module:js-data-ignite.version
  * @type {object}
  * @property {string} version.full The full semver value.
  * @property {number} version.major The major version number.
@@ -794,92 +768,6 @@ var version = {
   minor: 0,
   patch: 0
 };
-
-/**
- * {@link IgniteAdapter} class.
- *
- * @example <caption>CommonJS</caption>
- * const IgniteAdapter = require('js-data-sql').IgniteAdapter;
- * const adapter = new IgniteAdapter();
- *
- * @example <caption>ES2015 Modules</caption>
- * import { IgniteAdapter } from 'js-data-sql';
- * const adapter = new IgniteAdapter();
- *
- * @name module:js-data-sql.IgniteAdapter
- * @see IgniteAdapter
- * @type {Constructor}
- */
-
-/**
- * Registered as `js-data-sql` in NPM.
- *
- * @example <caption>Install from NPM (for use with MySQL)</caption>
- * npm i --save js-data-sql js-data mysql
- *
- * @example <caption>Load via CommonJS</caption>
- * const IgniteAdapter = require('js-data-sql').IgniteAdapter;
- * const adapter = new IgniteAdapter();
- *
- * @example <caption>Load via ES2015 Modules</caption>
- * import { IgniteAdapter } from 'js-data-sql';
- * const adapter = new IgniteAdapter();
- *
- * @module js-data-sql
- */
-
-/**
- * Create a subclass of this IgniteAdapter:
- * @example <caption>IgniteAdapter.extend</caption>
- * // Normally you would do: import { IgniteAdapter } from 'js-data-sql';
- * const JSDataSql = require('js-data-sql');
- * const { IgniteAdapter } = JSDataSql;
- * console.log('Using JSDataSql v' + JSDataSql.version.full);
- *
- * // Extend the class using ES2015 class syntax.
- * class CustomIgniteAdapterClass extends IgniteAdapter {
- *   foo () { return 'bar'; }
- *   static beep () { return 'boop'; }
- * }
- * const customIgniteAdapter = new CustomIgniteAdapterClass();
- * console.log(customIgniteAdapter.foo());
- * console.log(CustomIgniteAdapterClass.beep());
- *
- * // Extend the class using alternate method.
- * const OtherIgniteAdapterClass = IgniteAdapter.extend({
- *   foo () { return 'bar'; }
- * }, {
- *   beep () { return 'boop'; }
- * });
- * const otherIgniteAdapter = new OtherIgniteAdapterClass();
- * console.log(otherIgniteAdapter.foo());
- * console.log(OtherIgniteAdapterClass.beep());
- *
- * // Extend the class, providing a custom constructor.
- * function AnotherIgniteAdapterClass () {
- *   IgniteAdapter.call(this);
- *   this.created_at = new Date().getTime();
- * }
- * IgniteAdapter.extend({
- *   constructor: AnotherIgniteAdapterClass,
- *   foo () { return 'bar'; }
- * }, {
- *   beep () { return 'boop'; }
- * });
- * const anotherIgniteAdapter = new AnotherIgniteAdapterClass();
- * console.log(anotherIgniteAdapter.created_at);
- * console.log(anotherIgniteAdapter.foo());
- * console.log(AnotherIgniteAdapterClass.beep());
- *
- * @method IgniteAdapter.extend
- * @param {object} [props={}] Properties to add to the prototype of the
- * subclass.
- * @param {object} [props.constructor] Provide a custom constructor function
- * to be used as the subclass itself.
- * @param {object} [classProps={}] Static properties to add to the subclass.
- * @returns {Constructor} Subclass of this IgniteAdapter class.
- * @since 3.0.0
- */
 
 exports.OPERATORS = OPERATORS;
 exports.IgniteAdapter = IgniteAdapter;
