@@ -1,5 +1,5 @@
 import knex from 'knex'
-import {utils} from 'js-data'
+import { utils } from 'js-data'
 
 import {
   Adapter,
@@ -13,8 +13,6 @@ const IgniteClient = require('apache-ignite-client')
 const IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration
 
 const SqlFieldsQuery = IgniteClient.SqlFieldsQuery
-
-const CacheConfiguration = IgniteClient.CacheConfiguration
 
 const DEFAULTS = {}
 
@@ -171,7 +169,7 @@ Object.freeze(OPERATORS)
  * @param {Object} [opts.operators] See {@link IgniteAdapter#operators}.
  * @param {boolean} [opts.raw=false] See {@link Adapter#raw}.
  */
-export function IgniteAdapter (opts) {
+export function IgniteAdapter(opts) {
   utils.classCallCheck(this, IgniteAdapter)
   opts || (opts = {})
   opts.knexOpts || (opts.knexOpts = {})
@@ -216,6 +214,10 @@ export function IgniteAdapter (opts) {
   this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener))
   // this.igniteClient  = new IgniteClient();
 
+  if (opts.igniteOpts.debug) {
+    this.igniteClient.setDebug(true)
+  }
+
   const igniteClientConfiguration = new IgniteClientConfiguration(...opts.igniteOpts.endpoints)
     .setUserName(opts.igniteOpts.username)
     .setPassword(opts.igniteOpts.password)
@@ -231,15 +233,15 @@ export function IgniteAdapter (opts) {
 //   return this.igniteClient.connect(this.igniteClientConfiguration)
 // }
 
-function getTable (mapper) {
+function getTable(mapper) {
   return mapper.table || snakeCase(mapper.name)
 }
 
-function getCacheName (mapper) {
+function getCacheName(mapper) {
   return 'SQL_PUBLIC_' + getTable(mapper).toUpperCase()
 }
 
-function getFields (mapper, sqlBuilder) {
+function getFields(mapper, sqlBuilder) {
   const fields = mapper.schema.properties
   const table = getTable(mapper)
 
@@ -252,8 +254,8 @@ function getFields (mapper, sqlBuilder) {
   return sqlBuilder
 }
 
-function translateToKnex (mapper, values) {
-  if (!values.length) {
+function translateToKnex(mapper, values) {
+  if (!values || !values.length) {
     return null
   }
 
@@ -261,8 +263,6 @@ function translateToKnex (mapper, values) {
 
   const result = {}
   let i = 0
-
-  console.log(values)
 
   for (const field in fields) {
     if (fields.hasOwnProperty(field)) {
@@ -300,11 +300,11 @@ IgniteAdapter.extend = utils.extend
 Adapter.extend({
   constructor: IgniteAdapter,
 
-  async connect () {
+  async connect() {
     return this.igniteClient.connect(this.igniteClientConfiguration)
   },
 
-  async _count (mapper, query, opts) {
+  async _count(mapper, query, opts) {
     opts || (opts = {})
     query || (query = {})
 
@@ -316,14 +316,13 @@ Adapter.extend({
     console.log(sqlText)
 
     const countQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-        .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(countQuery)).getAll()
 
     return [result[0][0], {}]
   },
 
-  async _create (mapper, props, opts) {
+  async _create(mapper, props, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     opts || (opts = {})
@@ -343,14 +342,13 @@ Adapter.extend({
       .toString()
 
     const createQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(createQuery)
 
     return this._find(mapper, props[idAttribute], opts)
   },
 
-  async _createMany (mapper, props, opts) {
+  async _createMany(mapper, props, opts) {
     props || (props = {})
     opts || (opts = {})
 
@@ -374,8 +372,7 @@ Adapter.extend({
     console.log(sqlText)
 
     const createQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(createQuery)
 
     const query = {
@@ -389,7 +386,7 @@ Adapter.extend({
     return this._findAll(mapper, query, opts)
   },
 
-  async _destroy (mapper, id, opts) {
+  async _destroy(mapper, id, opts) {
     opts || (opts = {})
 
     const record = await this._find(mapper, id, opts)
@@ -400,14 +397,13 @@ Adapter.extend({
       .toString()
 
     const destroyQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-        .setSqlSchema('PUBLIC'))
-    await cache.query(destroyQuery)
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
+    await (await cache.query(destroyQuery)).getAll()
 
     return record
   },
 
-  async _destroyAll (mapper, query, opts) {
+  async _destroyAll(mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
@@ -420,14 +416,13 @@ Adapter.extend({
     console.log(sqlText)
 
     const destroyAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(destroyAllQuery)
 
     return records
   },
 
-  async _find (mapper, id, opts) {
+  async _find(mapper, id, opts) {
     opts || (opts = {})
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
@@ -440,14 +435,20 @@ Adapter.extend({
     console.log(sqlText)
 
     const findQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
-    const result = await (await cache.query(findQuery)).getAll()
+    let result = []
 
-    return [ translateToKnex(mapper, result[0]), {} ]
+    try {
+      const cache = await this.igniteClient.getCache(getCacheName(mapper))
+      result = await (await cache.query(findQuery)).getAll()
+    } catch (error) {
+      console.log('Erro - ' + sqlText)
+      throw error
+    }
+
+    return [translateToKnex(mapper, result[0]), {}]
   },
 
-  async _findAll (mapper, query, opts) {
+  async _findAll(mapper, query, opts) {
     query || (query = {})
     opts || (opts = {})
 
@@ -456,17 +457,23 @@ Adapter.extend({
     console.log(sqlText)
 
     const findAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
-    const records = await (await cache.query(findAllQuery)).getAll()
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
+
+    let records = []
+    try {
+      records = await (await cache.query(findAllQuery)).getAll()
+    } catch (e) {
+      console.log('Erro - ' + sqlText)
+      throw e
+    }
 
     const result = records.map((record) => {
       return translateToKnex(mapper, record)
     })
-    return [ result, {} ]
+    return [result, {}]
   },
 
-  async _sum (mapper, field, query, opts) {
+  async _sum(mapper, field, query, opts) {
     if (!utils.isString(field)) {
       throw new Error('field must be a string!')
     }
@@ -478,17 +485,14 @@ Adapter.extend({
       .sum(`${field} as sum`)
       .toString()
 
-    console.log(sqlText)
-
     const sumQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(sumQuery)).getAll()
 
     return [result[0][0], {}]
   },
 
-  async _update (mapper, id, props, opts) {
+  async _update(mapper, id, props, opts) {
     props || (props = {})
     opts || (opts = {})
 
@@ -508,17 +512,14 @@ Adapter.extend({
       .update(props)
       .toString()
 
-    console.log(sqlText)
-
     const updateQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateQuery)
 
     return this._find(mapper, id, opts)
   },
 
-  async _updateAll (mapper, props, query, opts) {
+  async _updateAll(mapper, props, query, opts) {
     const idAttribute = mapper.idAttribute
     props || (props = {})
     query || (query = {})
@@ -538,17 +539,15 @@ Adapter.extend({
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString()
 
     const updateAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getOrCreateCache(getCacheName(mapper), new CacheConfiguration()
-      .setSqlSchema('PUBLIC'))
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateAllQuery)
-    // const updated = await (await cache.query(updateAllQuery)).getAll()
 
     const _query = { where: {} }
     _query.where[idAttribute] = { 'in': ids }
     return this._findAll(mapper, _query, opts)
   },
 
-  async _updateMany (mapper, records, opts) {
+  async _updateMany(mapper, records, opts) {
     const idAttribute = mapper.idAttribute
     records || (records = [])
     opts || (opts = {})
@@ -558,7 +557,7 @@ Adapter.extend({
     return Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
   },
 
-  applyWhereFromObject (sqlBuilder, where, opts) {
+  applyWhereFromObject(sqlBuilder, where, opts) {
     utils.forOwn(where, (criteria, field) => {
       if (!utils.isObject(criteria)) {
         criteria = { '==': criteria }
@@ -581,7 +580,7 @@ Adapter.extend({
     return sqlBuilder
   },
 
-  applyWhereFromArray (sqlBuilder, where, opts) {
+  applyWhereFromArray(sqlBuilder, where, opts) {
     where.forEach((_where, i) => {
       if (_where === 'and' || _where === 'or') {
         return
@@ -608,7 +607,7 @@ Adapter.extend({
     return sqlBuilder
   },
 
-  filterQuery (sqlBuilder, query, opts) {
+  filterQuery(sqlBuilder, query, opts) {
     query = utils.plainCopy(query || {})
     opts || (opts = {})
     opts.operators || (opts.operators = {})
@@ -665,18 +664,6 @@ Adapter.extend({
     }
 
     return sqlBuilder
-    // if (!isEmpty(params.where)) {
-    //   forOwn(params.where, (criteria, field) => {
-    //     if (contains(field, '.')) {
-    //       if (contains(field, ',')) {
-    //         let splitFields = field.split(',').map(c => c.trim())
-    //         field = splitFields.map(splitField => processRelationField.call(this, resourceConfig, query, splitField, criteria, options, joinedTables)).join(',')
-    //       } else {
-    //         field = processRelationField.call(this, resourceConfig, query, field, criteria, options, joinedTables)
-    //       }
-    //     }
-    //   })
-    // }
   },
 
   /**
@@ -691,34 +678,33 @@ Adapter.extend({
    * for specified operators.
    * @return {*} The predicate function for the specified operator.
    */
-  getOperator (operator, opts) {
+  getOperator(operator, opts) {
     opts || (opts = {})
     opts.operators || (opts.operators = {})
     let ownOps = this.operators || {}
     return utils.isUndefined(opts.operators[operator]) ? ownOps[operator] : opts.operators[operator]
   },
 
-  getTable (mapper) {
+  getTable(mapper) {
     return mapper.table || snakeCase(mapper.name)
   },
 
-  selectTable (mapper, opts) {
+  selectTable(mapper, opts) {
     opts || (opts = {})
     const query = utils.isUndefined(opts.query) ? this.knex : opts.query
     const table = this.getTable(mapper)
     return getFields(mapper, query).from(table)
-    // return query.select(getFields(mapper)).from(table)
   }
 })
 
 /**
- * Details of the current version of the `js-data-sql` module.
+ * Details of the current version of the `js-data-ignite` module.
  *
  * @example
- * import { version } from 'js-data-sql';
+ * import { version } from 'js-data-ignite';
  * console.log(version.full);
  *
- * @name module:js-data-sql.version
+ * @name module:js-data-ignite.version
  * @type {object}
  * @property {string} version.full The full semver value.
  * @property {number} version.major The major version number.
@@ -730,89 +716,3 @@ Adapter.extend({
  * otherwise `false` if the current version is not beta.
  */
 export const version = '<%= version %>'
-
-/**
- * {@link IgniteAdapter} class.
- *
- * @example <caption>CommonJS</caption>
- * const IgniteAdapter = require('js-data-sql').IgniteAdapter;
- * const adapter = new IgniteAdapter();
- *
- * @example <caption>ES2015 Modules</caption>
- * import { IgniteAdapter } from 'js-data-sql';
- * const adapter = new IgniteAdapter();
- *
- * @name module:js-data-sql.IgniteAdapter
- * @see IgniteAdapter
- * @type {Constructor}
- */
-
-/**
- * Registered as `js-data-sql` in NPM.
- *
- * @example <caption>Install from NPM (for use with MySQL)</caption>
- * npm i --save js-data-sql js-data mysql
- *
- * @example <caption>Load via CommonJS</caption>
- * const IgniteAdapter = require('js-data-sql').IgniteAdapter;
- * const adapter = new IgniteAdapter();
- *
- * @example <caption>Load via ES2015 Modules</caption>
- * import { IgniteAdapter } from 'js-data-sql';
- * const adapter = new IgniteAdapter();
- *
- * @module js-data-sql
- */
-
-/**
- * Create a subclass of this IgniteAdapter:
- * @example <caption>IgniteAdapter.extend</caption>
- * // Normally you would do: import { IgniteAdapter } from 'js-data-sql';
- * const JSDataSql = require('js-data-sql');
- * const { IgniteAdapter } = JSDataSql;
- * console.log('Using JSDataSql v' + JSDataSql.version.full);
- *
- * // Extend the class using ES2015 class syntax.
- * class CustomIgniteAdapterClass extends IgniteAdapter {
- *   foo () { return 'bar'; }
- *   static beep () { return 'boop'; }
- * }
- * const customIgniteAdapter = new CustomIgniteAdapterClass();
- * console.log(customIgniteAdapter.foo());
- * console.log(CustomIgniteAdapterClass.beep());
- *
- * // Extend the class using alternate method.
- * const OtherIgniteAdapterClass = IgniteAdapter.extend({
- *   foo () { return 'bar'; }
- * }, {
- *   beep () { return 'boop'; }
- * });
- * const otherIgniteAdapter = new OtherIgniteAdapterClass();
- * console.log(otherIgniteAdapter.foo());
- * console.log(OtherIgniteAdapterClass.beep());
- *
- * // Extend the class, providing a custom constructor.
- * function AnotherIgniteAdapterClass () {
- *   IgniteAdapter.call(this);
- *   this.created_at = new Date().getTime();
- * }
- * IgniteAdapter.extend({
- *   constructor: AnotherIgniteAdapterClass,
- *   foo () { return 'bar'; }
- * }, {
- *   beep () { return 'boop'; }
- * });
- * const anotherIgniteAdapter = new AnotherIgniteAdapterClass();
- * console.log(anotherIgniteAdapter.created_at);
- * console.log(anotherIgniteAdapter.foo());
- * console.log(AnotherIgniteAdapterClass.beep());
- *
- * @method IgniteAdapter.extend
- * @param {object} [props={}] Properties to add to the prototype of the
- * subclass.
- * @param {object} [props.constructor] Provide a custom constructor function
- * to be used as the subclass itself.
- * @param {object} [classProps={}] Static properties to add to the subclass.
- * @returns {Constructor} Subclass of this IgniteAdapter class.
- * @since 3.0.0
- */
