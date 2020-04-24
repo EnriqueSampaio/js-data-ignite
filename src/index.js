@@ -313,8 +313,6 @@ Adapter.extend({
       .count('* as count')
       .toString()
 
-    console.log(sqlText)
-
     const countQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(countQuery)).getAll()
@@ -369,8 +367,6 @@ Adapter.extend({
       .insert(props)
       .toString()
 
-    console.log(sqlText)
-
     const createQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(createQuery)
@@ -398,7 +394,7 @@ Adapter.extend({
 
     const destroyQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
-    await (await cache.query(destroyQuery)).getAll()
+    await cache.query(destroyQuery)
 
     return record
   },
@@ -412,8 +408,6 @@ Adapter.extend({
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
       .del()
       .toString()
-
-    console.log(sqlText)
 
     const destroyAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
@@ -432,18 +426,10 @@ Adapter.extend({
       .where(`${table}.${mapper.idAttribute}`, toString(id))
       .toString()
 
-    console.log(sqlText)
-
     const findQuery = new SqlFieldsQuery(sqlText)
-    let result = []
 
-    try {
-      const cache = await this.igniteClient.getCache(getCacheName(mapper))
-      result = await (await cache.query(findQuery)).getAll()
-    } catch (error) {
-      console.log('Erro - ' + sqlText)
-      throw error
-    }
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
+    const result = await (await cache.query(findQuery)).getAll()
 
     return [translateToKnex(mapper, result[0]), {}]
   },
@@ -454,22 +440,14 @@ Adapter.extend({
 
     const sqlText = this.filterQuery(this.selectTable(mapper, opts), query, opts).toString()
 
-    console.log(sqlText)
-
     const findAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
 
-    let records = []
-    try {
-      records = await (await cache.query(findAllQuery)).getAll()
-    } catch (e) {
-      console.log('Erro - ' + sqlText)
-      throw e
-    }
-
+    const records = await (await cache.query(findAllQuery)).getAll()
     const result = records.map((record) => {
       return translateToKnex(mapper, record)
     })
+
     return [result, {}]
   },
 
@@ -484,7 +462,7 @@ Adapter.extend({
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
       .sum(`${field} as sum`)
       .toString()
-
+    
     const sumQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(sumQuery)).getAll()
