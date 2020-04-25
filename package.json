@@ -51,9 +51,6 @@
     "lodash.snakecase": "4.1.1",
     "lodash.tostring": "4.1.4"
   },
-  "peerDependencies": {
-    "js-data": ">=3.0.2"
-  },
   "devDependencies": {
     "babel-core": "6.26.0",
     "babel-eslint": "7.2.3",
