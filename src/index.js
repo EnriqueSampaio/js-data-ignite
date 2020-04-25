@@ -225,7 +225,7 @@ export function IgniteAdapter (opts) {
 
   this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration)
 
-  this.igniteClient.connect(this.igniteClientConfiguration)
+  // this.igniteClient.connect(this.igniteClientConfiguration)
   // await igniteClient.connect(igniteClientConfiguration);
 }
 
