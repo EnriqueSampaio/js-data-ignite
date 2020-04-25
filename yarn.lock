@@ -120,7 +120,7 @@ ansistyles@~0.1.3:
 
 "apache-ignite-client@https://github.com/EnriqueSampaio/apache-ignite-client.git":
   version "1.0.1"
-  resolved "https://github.com/EnriqueSampaio/apache-ignite-client.git#c971a7721aac5e464c55ad64ac9d0a68b12d7a73"
+  resolved "https://github.com/EnriqueSampaio/apache-ignite-client.git#fdefad0a29c202fbb1ccf67106ecec0e564ea433"
   dependencies:
     decimal.js latest
     long latest
