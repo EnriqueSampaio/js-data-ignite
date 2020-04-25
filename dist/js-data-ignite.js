@@ -316,8 +316,9 @@ function IgniteAdapter(opts) {
 
   this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration);
 
-  this.igniteClient.connect(this.igniteClientConfiguration);
-  // await igniteClient.connect(igniteClientConfiguration);
+  if (!opts.igniteOpts.manualConnect) {
+    this.igniteClient.connect(this.igniteClientConfiguration);
+  }
 }
 
 // async function connect () {
