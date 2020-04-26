@@ -108,7 +108,6 @@ var toConsumableArray = function (arr) {
 var IgniteClient = require('apache-ignite-client');
 
 var IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration;
-
 var SqlFieldsQuery = IgniteClient.SqlFieldsQuery;
 
 var DEFAULTS = {};
@@ -358,7 +357,14 @@ function translateToKnex(mapper, values) {
 
   for (var field in fields) {
     if (fields.hasOwnProperty(field)) {
-      result[field] = fields[field].type === 'array' ? JSON.parse(values[i++].replace(/\\/g, '')) : values[i++];
+      switch (fields[field].type) {
+        case 'array':
+          result[field] = JSON.parse(values[i++].replace(/\\/g, ''));
+          break;
+        default:
+          result[field] = values[i++];
+          break;
+      }
     }
   }
 
@@ -512,6 +518,9 @@ jsDataAdapter.Adapter.extend({
     var sqlText = this.filterQuery(this.selectTable(mapper, opts), query, opts).toString();
 
     var findAllQuery = new SqlFieldsQuery(sqlText);
+
+    console.log(sqlText);
+
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
 
     var records = await (await cache.query(findAllQuery)).getAll();
