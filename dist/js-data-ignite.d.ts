@@ -15,6 +15,7 @@ interface IBaseIgniteAdapter extends IBaseAdapter {
 export class IgniteAdapter extends Adapter {
   static extend(instanceProps?: IDict, classProps?: IDict): typeof IgniteAdapter
   constructor(opts?: IBaseIgniteAdapter)
+  connect(): Promise<void>
 }
 export interface OPERATORS {
   '=': Function

@@ -98,6 +98,9 @@ export const OPERATORS = {
   'like': function (query, field, value, isOr) {
     return query[getWhereType(isOr)](field, 'like', value)
   },
+  'likei': function (query, field, value, isOr, knexInstance) {
+    return query[getWhereType(isOr)](knexInstance.raw(`LOWER(${field})`), 'like', knexInstance.raw(`LOWER('${value}')`))
+  },
   'near': function (query, field, value, isOr) {
     let radius
     let unitsPerDegree
@@ -211,7 +214,6 @@ export function IgniteAdapter (opts) {
   // this.igniteOpts || (this.igniteOpts = {})
 
   this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener))
-  // this.igniteClient  = new IgniteClient();
 
   if (opts.igniteOpts.debug) {
     this.igniteClient.setDebug(true)
@@ -449,10 +451,7 @@ Adapter.extend({
 
     const findAllQuery = new SqlFieldsQuery(sqlText)
 
-    console.log(sqlText)
-
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
-
     const records = await (await cache.query(findAllQuery)).getAll()
     const result = records.map((record) => {
       return translateToKnex(mapper, record)
@@ -559,7 +558,7 @@ Adapter.extend({
         }
         let predicateFn = this.getOperator(operator, opts)
         if (predicateFn) {
-          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr)
+          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr, this.knex)
         } else {
           throw new Error(`Operator ${operator} not supported!`)
         }
