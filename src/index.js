@@ -1,6 +1,5 @@
 import knex from 'knex'
 import { utils } from 'js-data'
-
 import {
   Adapter,
   reserved
@@ -336,9 +335,12 @@ Adapter.extend({
 
     for (const field in props) {
       if (props.hasOwnProperty(field)) {
-        const element = props[field]
-        if (Array.isArray(element)) {
-          props[field] = JSON.stringify(element)
+        switch (mapper.schema.properties[field].type) {
+          case 'array':
+            props[field] = JSON.stringify(props[field])
+            break
+          default:
+            break
         }
       }
     }
@@ -430,10 +432,21 @@ Adapter.extend({
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const table = getTable(mapper)
-    const sqlText = getFields(mapper, sqlBuilder)
-      .from(table)
-      .where(`${table}.${mapper.idAttribute}`, toString(id))
-      .toString()
+
+    let sqlText
+    if (Array.isArray(id)) {
+      if (!mapper.compositePk) {
+        throw new Error('Model does not have composite PK')
+      }
+
+      sqlText = this.compositePk(mapper, getFields(mapper, sqlBuilder).from(table), id, this.knex)
+    } else {
+      sqlText = getFields(mapper, sqlBuilder)
+        .from(table)
+        .where(`${table}.${mapper.idAttribute}`, toString(id))
+    }
+
+    sqlText = sqlText.toString()
 
     const findQuery = new SqlFieldsQuery(sqlText)
 
@@ -492,18 +505,29 @@ Adapter.extend({
       }
     }
 
-    delete props[mapper.idAttribute]
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
-    const sqlText = sqlBuilder(getTable(mapper))
-      .where(mapper.idAttribute, toString(id))
-      .update(props)
-      .toString()
+    let sqlText
+
+    const ids = []
+    if (mapper.compositePk) {
+      for (const field of mapper.compositePk) {
+        ids.push(props[field])
+        delete props[field]
+      }
+
+      sqlText = this.compositePk(mapper, sqlBuilder(getTable(mapper)), ids, this.knex)
+    } else {
+      sqlText = sqlBuilder(getTable(mapper))
+        .where(mapper.idAttribute, toString(id))
+    }
+
+    sqlText = sqlText.update(props).toString()
 
     const updateQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateQuery)
 
-    return this._find(mapper, id, opts)
+    return mapper.compositePk ? this._find(mapper, ids, opts) : this._find(mapper, id, opts)
   },
 
   async _updateAll (mapper, props, query, opts) {
@@ -530,6 +554,7 @@ Adapter.extend({
     await cache.query(updateAllQuery)
 
     const _query = { where: {} }
+
     _query.where[idAttribute] = { 'in': ids }
     return this._findAll(mapper, _query, opts)
   },
@@ -542,6 +567,23 @@ Adapter.extend({
     const tasks = records.map((record) => this._update(mapper, record[idAttribute], record, opts))
 
     return Promise.all(tasks).then((results) => [results.map((result) => result[0]), {}])
+  },
+
+  compositePk (mapper, sqlBuilder, pkValues, knexInstance) {
+    const query = {}
+
+    for (const [index, field] of mapper.compositePk.entries()) {
+      switch (mapper.schema.properties[field].type) {
+        case 'date':
+          query[field] = knexInstance.raw(`TIMESTAMP '${pkValues[index].toISOString()}'`)
+          break
+        default:
+          query[field] = pkValues[index]
+          break
+      }
+    }
+
+    return sqlBuilder.where(query)
   },
 
   applyWhereFromObject (sqlBuilder, where, opts) {

@@ -363,6 +363,9 @@ function translateToKnex(mapper, values) {
         case 'array':
           result[field] = JSON.parse(values[i++].replace(/\\/g, ''));
           break;
+        // case 'string':
+        // result[field] = values[i++].replace(/\\n/g, '\n')
+        // break
         default:
           result[field] = values[i++];
           break;
@@ -423,9 +426,12 @@ jsDataAdapter.Adapter.extend({
 
     for (var field in props) {
       if (props.hasOwnProperty(field)) {
-        var element = props[field];
-        if (Array.isArray(element)) {
-          props[field] = JSON.stringify(element);
+        switch (mapper.schema.properties[field].type) {
+          case 'array':
+            props[field] = JSON.stringify(props[field]);
+            break;
+          default:
+            break;
         }
       }
     }
@@ -504,7 +510,19 @@ jsDataAdapter.Adapter.extend({
 
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var table = getTable(mapper);
-    var sqlText = getFields(mapper, sqlBuilder).from(table).where(table + '.' + mapper.idAttribute, toString(id)).toString();
+
+    var sqlText = void 0;
+    if (Array.isArray(id)) {
+      if (!mapper.compositePk) {
+        throw new Error('Model does not have composite PK');
+      }
+
+      sqlText = this.compositePk(mapper, getFields(mapper, sqlBuilder).from(table), id, this.knex);
+    } else {
+      sqlText = getFields(mapper, sqlBuilder).from(table).where(table + '.' + mapper.idAttribute, toString(id));
+    }
+
+    sqlText = sqlText.toString();
 
     var findQuery = new SqlFieldsQuery(sqlText);
 
@@ -558,15 +576,49 @@ jsDataAdapter.Adapter.extend({
       }
     }
 
-    delete props[mapper.idAttribute];
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
-    var sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id)).update(props).toString();
+    var sqlText = void 0;
+
+    var ids = [];
+    if (mapper.compositePk) {
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = mapper.compositePk[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var _field = _step.value;
+
+          ids.push(props[_field]);
+          delete props[_field];
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      sqlText = this.compositePk(mapper, sqlBuilder(getTable(mapper)), ids, this.knex);
+    } else {
+      sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id));
+    }
+
+    sqlText = sqlText.update(props).toString();
 
     var updateQuery = new SqlFieldsQuery(sqlText);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateQuery);
 
-    return this._find(mapper, id, opts);
+    return mapper.compositePk ? this._find(mapper, ids, opts) : this._find(mapper, id, opts);
   },
   _updateAll: async function _updateAll(mapper, props, query, opts) {
     var idAttribute = mapper.idAttribute;
@@ -594,6 +646,7 @@ jsDataAdapter.Adapter.extend({
     await cache.query(updateAllQuery);
 
     var _query = { where: {} };
+
     _query.where[idAttribute] = { 'in': ids };
     return this._findAll(mapper, _query, opts);
   },
@@ -613,6 +666,45 @@ jsDataAdapter.Adapter.extend({
         return result[0];
       }), {}];
     });
+  },
+  compositePk: function compositePk(mapper, sqlBuilder, pkValues, knexInstance) {
+    var query = {};
+
+    var _iteratorNormalCompletion2 = true;
+    var _didIteratorError2 = false;
+    var _iteratorError2 = undefined;
+
+    try {
+      for (var _iterator2 = mapper.compositePk.entries()[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+        var _step2$value = slicedToArray(_step2.value, 2),
+            index = _step2$value[0],
+            field = _step2$value[1];
+
+        switch (mapper.schema.properties[field].type) {
+          case 'date':
+            query[field] = knexInstance.raw('TIMESTAMP \'' + pkValues[index].toISOString() + '\'');
+            break;
+          default:
+            query[field] = pkValues[index];
+            break;
+        }
+      }
+    } catch (err) {
+      _didIteratorError2 = true;
+      _iteratorError2 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion2 && _iterator2.return) {
+          _iterator2.return();
+        }
+      } finally {
+        if (_didIteratorError2) {
+          throw _iteratorError2;
+        }
+      }
+    }
+
+    return sqlBuilder.where(query);
   },
   applyWhereFromObject: function applyWhereFromObject(sqlBuilder, where, opts) {
     var _this2 = this;
