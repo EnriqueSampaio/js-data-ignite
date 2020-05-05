@@ -198,6 +198,13 @@ var OPERATORS = {
   'likei': function likei(query, field, value, isOr, knexInstance) {
     return query[getWhereType(isOr)](knexInstance.raw('LOWER(' + field + ')'), 'like', knexInstance.raw('LOWER(\'' + value + '\')'));
   },
+  'subquery': function subquery(query, field, value, isOr, knexInstance) {
+    if (!value.field || !value.table || !value.filterField || !value.filterValue) {
+      throw new Error('Missing subquery fields');
+    }
+
+    return query[getWhereType(isOr)](field, 'in', knexInstance(value.table).where(value.filterField, value.filterValue).select(value.field));
+  },
   'near': function near(query, field, value, isOr) {
     var radius = void 0;
     var unitsPerDegree = void 0;
@@ -363,9 +370,6 @@ function translateToKnex(mapper, values) {
         case 'array':
           result[field] = JSON.parse(values[i++].replace(/\\/g, ''));
           break;
-        // case 'string':
-        // result[field] = values[i++].replace(/\\n/g, '\n')
-        // break
         default:
           result[field] = values[i++];
           break;
@@ -609,6 +613,12 @@ jsDataAdapter.Adapter.extend({
 
       sqlText = this.compositePk(mapper, sqlBuilder(getTable(mapper)), ids, this.knex);
     } else {
+      for (var _field2 in props) {
+        if (props.hasOwnProperty(_field2) && _field2 === mapper.idAttribute) {
+          delete props[_field2];
+        }
+      }
+
       sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id));
     }
 

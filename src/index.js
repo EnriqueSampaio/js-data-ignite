@@ -100,6 +100,13 @@ export const OPERATORS = {
   'likei': function (query, field, value, isOr, knexInstance) {
     return query[getWhereType(isOr)](knexInstance.raw(`LOWER(${field})`), 'like', knexInstance.raw(`LOWER('${value}')`))
   },
+  'subquery': function (query, field, value, isOr, knexInstance) {
+    if (!value.field || !value.table || !value.filterField || !value.filterValue) {
+      throw new Error('Missing subquery fields')
+    }
+
+    return query[getWhereType(isOr)](field, 'in', knexInstance(value.table).where(value.filterField, value.filterValue).select(value.field))
+  },
   'near': function (query, field, value, isOr) {
     let radius
     let unitsPerDegree
@@ -517,6 +524,12 @@ Adapter.extend({
 
       sqlText = this.compositePk(mapper, sqlBuilder(getTable(mapper)), ids, this.knex)
     } else {
+      for (const field in props) {
+        if (props.hasOwnProperty(field) && field === mapper.idAttribute) {
+          delete props[field]
+        }
+      }
+
       sqlText = sqlBuilder(getTable(mapper))
         .where(mapper.idAttribute, toString(id))
     }
