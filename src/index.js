@@ -237,10 +237,6 @@ export function IgniteAdapter (opts) {
   }
 }
 
-// async function connect () {
-//   return this.igniteClient.connect(this.igniteClientConfiguration)
-// }
-
 function getTable (mapper) {
   return mapper.table || snakeCase(mapper.name)
 }
@@ -260,6 +256,29 @@ function getFields (mapper, sqlBuilder) {
   }
 
   return sqlBuilder
+}
+
+function escapeData (mapper, props, knexInstance) {
+  for (const field in props) {
+    if (props.hasOwnProperty(field)) {
+      const types = Array.isArray(mapper.schema.properties[field].type) ? mapper.schema.properties[field].type.join('|') : mapper.schema.properties[field].type
+      switch (types) {
+        case 'array':
+          props[field] = knexInstance.raw(`'${JSON.stringify(props[field])}'`)
+          break
+        case 'date':
+        case 'date|null':
+          props[field] = props[field] ? knexInstance.raw(`TIMESTAMP '${props[field].toISOString()}'`) : null
+          break
+        case 'string':
+        case 'string|null':
+          props[field] = props[field] ? knexInstance.raw(`'${props[field].replace(/'/g, "''").replace(/\?/g, '\\?')}'`) : null
+          break
+      }
+    }
+  }
+
+  return props
 }
 
 function translateToKnex (mapper, values) {
@@ -340,17 +359,7 @@ Adapter.extend({
     props || (props = {})
     opts || (opts = {})
 
-    for (const field in props) {
-      if (props.hasOwnProperty(field)) {
-        switch (mapper.schema.properties[field].type) {
-          case 'array':
-            props[field] = JSON.stringify(props[field])
-            break
-          default:
-            break
-        }
-      }
-    }
+    props = escapeData(mapper, props, this.knex)
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const sqlText = sqlBuilder(getTable(mapper))
@@ -369,14 +378,7 @@ Adapter.extend({
     opts || (opts = {})
 
     props = props.map((singleProps) => {
-      for (const field in singleProps) {
-        if (singleProps.hasOwnProperty(field)) {
-          const element = singleProps[field]
-          if (Array.isArray(element)) {
-            singleProps[field] = JSON.stringify(element)
-          }
-        }
-      }
+      singleProps = escapeData(mapper, singleProps, this.knex)
       return singleProps
     })
 
@@ -450,7 +452,7 @@ Adapter.extend({
     } else {
       sqlText = getFields(mapper, sqlBuilder)
         .from(table)
-        .where(`${table}.${mapper.idAttribute}`, toString(id))
+        .where(`${table}.${mapper.idAttribute}`, id)
     }
 
     sqlText = sqlText.toString()
@@ -503,14 +505,7 @@ Adapter.extend({
     props || (props = {})
     opts || (opts = {})
 
-    for (const field in props) {
-      if (props.hasOwnProperty(field)) {
-        const element = props[field]
-        if (Array.isArray(element)) {
-          props[field] = JSON.stringify(element)
-        }
-      }
-    }
+    props = escapeData(mapper, props, this.knex)
 
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     let sqlText
@@ -551,6 +546,7 @@ Adapter.extend({
 
     props = props.map((singleProps) => {
       delete singleProps[idAttribute]
+      singleProps = escapeData(mapper, singleProps, this.knex)
       return singleProps
     })
 
@@ -586,14 +582,15 @@ Adapter.extend({
     const query = {}
 
     for (const [index, field] of mapper.compositePk.entries()) {
-      switch (mapper.schema.properties[field].type) {
-        case 'date':
-          query[field] = knexInstance.raw(`TIMESTAMP '${pkValues[index].toISOString()}'`)
-          break
-        default:
-          query[field] = pkValues[index]
-          break
-      }
+      query[field] = pkValues[index]
+      // switch (mapper.schema.properties[field].type) {
+      //   case 'date':
+      //     query[field] = knexInstance.raw(`TIMESTAMP '${pkValues[index].toISOString()}'`)
+      //     break
+      //   default:
+      //     query[field] = pkValues[index]
+      //     break
+      // }
     }
 
     return sqlBuilder.where(query)

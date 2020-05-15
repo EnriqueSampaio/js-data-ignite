@@ -329,10 +329,6 @@ function IgniteAdapter(opts) {
   }
 }
 
-// async function connect () {
-//   return this.igniteClient.connect(this.igniteClientConfiguration)
-// }
-
 function getTable(mapper) {
   return mapper.table || snakeCase(mapper.name);
 }
@@ -352,6 +348,29 @@ function getFields(mapper, sqlBuilder) {
   }
 
   return sqlBuilder;
+}
+
+function escapeData(mapper, props, knexInstance) {
+  for (var field in props) {
+    if (props.hasOwnProperty(field)) {
+      var types = Array.isArray(mapper.schema.properties[field].type) ? mapper.schema.properties[field].type.join('|') : mapper.schema.properties[field].type;
+      switch (types) {
+        case 'array':
+          props[field] = knexInstance.raw('\'' + JSON.stringify(props[field]) + '\'');
+          break;
+        case 'date':
+        case 'date|null':
+          props[field] = props[field] ? knexInstance.raw('TIMESTAMP \'' + props[field].toISOString() + '\'') : null;
+          break;
+        case 'string':
+        case 'string|null':
+          props[field] = props[field] ? knexInstance.raw('\'' + props[field].replace(/'/g, "''").replace(/\?/g, '\\?') + '\'') : null;
+          break;
+      }
+    }
+  }
+
+  return props;
 }
 
 function translateToKnex(mapper, values) {
@@ -428,17 +447,7 @@ jsDataAdapter.Adapter.extend({
     props || (props = {});
     opts || (opts = {});
 
-    for (var field in props) {
-      if (props.hasOwnProperty(field)) {
-        switch (mapper.schema.properties[field].type) {
-          case 'array':
-            props[field] = JSON.stringify(props[field]);
-            break;
-          default:
-            break;
-        }
-      }
-    }
+    props = escapeData(mapper, props, this.knex);
 
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).insert(props).toString();
@@ -450,18 +459,13 @@ jsDataAdapter.Adapter.extend({
     return this._find(mapper, props[idAttribute], opts);
   },
   _createMany: async function _createMany(mapper, props, opts) {
+    var _this = this;
+
     props || (props = {});
     opts || (opts = {});
 
     props = props.map(function (singleProps) {
-      for (var field in singleProps) {
-        if (singleProps.hasOwnProperty(field)) {
-          var element = singleProps[field];
-          if (Array.isArray(element)) {
-            singleProps[field] = JSON.stringify(element);
-          }
-        }
-      }
+      singleProps = escapeData(mapper, singleProps, _this.knex);
       return singleProps;
     });
 
@@ -523,7 +527,7 @@ jsDataAdapter.Adapter.extend({
 
       sqlText = this.compositePk(mapper, getFields(mapper, sqlBuilder).from(table), id, this.knex);
     } else {
-      sqlText = getFields(mapper, sqlBuilder).from(table).where(table + '.' + mapper.idAttribute, toString(id));
+      sqlText = getFields(mapper, sqlBuilder).from(table).where(table + '.' + mapper.idAttribute, id);
     }
 
     sqlText = sqlText.toString();
@@ -571,14 +575,7 @@ jsDataAdapter.Adapter.extend({
     props || (props = {});
     opts || (opts = {});
 
-    for (var field in props) {
-      if (props.hasOwnProperty(field)) {
-        var element = props[field];
-        if (Array.isArray(element)) {
-          props[field] = JSON.stringify(element);
-        }
-      }
-    }
+    props = escapeData(mapper, props, this.knex);
 
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = void 0;
@@ -591,10 +588,10 @@ jsDataAdapter.Adapter.extend({
 
       try {
         for (var _iterator = mapper.compositePk[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var _field = _step.value;
+          var field = _step.value;
 
-          ids.push(props[_field]);
-          delete props[_field];
+          ids.push(props[field]);
+          delete props[field];
         }
       } catch (err) {
         _didIteratorError = true;
@@ -613,9 +610,9 @@ jsDataAdapter.Adapter.extend({
 
       sqlText = this.compositePk(mapper, sqlBuilder(getTable(mapper)), ids, this.knex);
     } else {
-      for (var _field2 in props) {
-        if (props.hasOwnProperty(_field2) && _field2 === mapper.idAttribute) {
-          delete props[_field2];
+      for (var _field in props) {
+        if (props.hasOwnProperty(_field) && _field === mapper.idAttribute) {
+          delete props[_field];
         }
       }
 
@@ -631,6 +628,8 @@ jsDataAdapter.Adapter.extend({
     return mapper.compositePk ? this._find(mapper, ids, opts) : this._find(mapper, id, opts);
   },
   _updateAll: async function _updateAll(mapper, props, query, opts) {
+    var _this2 = this;
+
     var idAttribute = mapper.idAttribute;
     props || (props = {});
     query || (query = {});
@@ -638,6 +637,7 @@ jsDataAdapter.Adapter.extend({
 
     props = props.map(function (singleProps) {
       delete singleProps[idAttribute];
+      singleProps = escapeData(mapper, singleProps, _this2.knex);
       return singleProps;
     });
 
@@ -661,14 +661,14 @@ jsDataAdapter.Adapter.extend({
     return this._findAll(mapper, _query, opts);
   },
   _updateMany: async function _updateMany(mapper, records, opts) {
-    var _this = this;
+    var _this3 = this;
 
     var idAttribute = mapper.idAttribute;
     records || (records = []);
     opts || (opts = {});
 
     var tasks = records.map(function (record) {
-      return _this._update(mapper, record[idAttribute], record, opts);
+      return _this3._update(mapper, record[idAttribute], record, opts);
     });
 
     return Promise.all(tasks).then(function (results) {
@@ -690,14 +690,15 @@ jsDataAdapter.Adapter.extend({
             index = _step2$value[0],
             field = _step2$value[1];
 
-        switch (mapper.schema.properties[field].type) {
-          case 'date':
-            query[field] = knexInstance.raw('TIMESTAMP \'' + pkValues[index].toISOString() + '\'');
-            break;
-          default:
-            query[field] = pkValues[index];
-            break;
-        }
+        query[field] = pkValues[index];
+        // switch (mapper.schema.properties[field].type) {
+        //   case 'date':
+        //     query[field] = knexInstance.raw(`TIMESTAMP '${pkValues[index].toISOString()}'`)
+        //     break
+        //   default:
+        //     query[field] = pkValues[index]
+        //     break
+        // }
       }
     } catch (err) {
       _didIteratorError2 = true;
@@ -717,7 +718,7 @@ jsDataAdapter.Adapter.extend({
     return sqlBuilder.where(query);
   },
   applyWhereFromObject: function applyWhereFromObject(sqlBuilder, where, opts) {
-    var _this2 = this;
+    var _this4 = this;
 
     jsData.utils.forOwn(where, function (criteria, field) {
       if (!jsData.utils.isObject(criteria)) {
@@ -730,9 +731,9 @@ jsDataAdapter.Adapter.extend({
           operator = operator.substr(1);
           isOr = true;
         }
-        var predicateFn = _this2.getOperator(operator, opts);
+        var predicateFn = _this4.getOperator(operator, opts);
         if (predicateFn) {
-          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr, _this2.knex);
+          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr, _this4.knex);
         } else {
           throw new Error('Operator ' + operator + ' not supported!');
         }
@@ -741,15 +742,15 @@ jsDataAdapter.Adapter.extend({
     return sqlBuilder;
   },
   applyWhereFromArray: function applyWhereFromArray(sqlBuilder, where, opts) {
-    var _this3 = this;
+    var _this5 = this;
 
     where.forEach(function (_where, i) {
       if (_where === 'and' || _where === 'or') {
         return;
       }
-      var self = _this3;
+      var self = _this5;
       var prev = where[i - 1];
-      var parser = jsData.utils.isArray(_where) ? _this3.applyWhereFromArray : _this3.applyWhereFromObject;
+      var parser = jsData.utils.isArray(_where) ? _this5.applyWhereFromArray : _this5.applyWhereFromObject;
       if (prev) {
         if (prev === 'or') {
           sqlBuilder = sqlBuilder.orWhere(function () {
