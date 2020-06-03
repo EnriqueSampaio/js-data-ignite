@@ -44,7 +44,7 @@
   },
   "author": "Brainboss",
   "dependencies": {
-    "apache-ignite-data": "https://github.com/EnriqueSampaio/apache-ignite-client.git",
+    "apache-ignite-client": "https://github.com/EnriqueSampaio/apache-ignite-client.git",
     "js-data": ">=3.0.2",
     "js-data-adapter": ">=1.0.1",
     "knex": ">=0.20.13",
