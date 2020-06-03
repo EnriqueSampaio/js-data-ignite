@@ -83,31 +83,7 @@ var slicedToArray = function () {
   };
 }();
 
-
-
-
-
-
-
-
-
-
-
-
-
-var toConsumableArray = function (arr) {
-  if (Array.isArray(arr)) {
-    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
-
-    return arr2;
-  } else {
-    return Array.from(arr);
-  }
-};
-
 var IgniteClient = require('apache-ignite-client');
-
-var IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration;
 var SqlFieldsQuery = IgniteClient.SqlFieldsQuery;
 
 var DEFAULTS = {};
@@ -276,7 +252,7 @@ function IgniteAdapter(opts) {
   jsData.utils.classCallCheck(this, IgniteAdapter);
   opts || (opts = {});
   opts.knexOpts || (opts.knexOpts = {});
-  opts.igniteOpts || (opts.igniteOpts = {});
+  opts.igniteClient || (opts.igniteClient = {});
   jsData.utils.fillIn(opts, DEFAULTS);
 
   Object.defineProperties(this, {
@@ -312,21 +288,7 @@ function IgniteAdapter(opts) {
   this.operators || (this.operators = {});
   jsData.utils.fillIn(this.operators, OPERATORS);
 
-  // this.igniteOpts || (this.igniteOpts = {})
-
-  this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener));
-
-  if (opts.igniteOpts.debug) {
-    this.igniteClient.setDebug(true);
-  }
-
-  var igniteClientConfiguration = new (Function.prototype.bind.apply(IgniteClientConfiguration, [null].concat(toConsumableArray(opts.igniteOpts.endpoints))))().setUserName(opts.igniteOpts.username).setPassword(opts.igniteOpts.password).setConnectionOptions(opts.igniteOpts.useTLS, opts.igniteOpts.connectionOptions);
-
-  this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration);
-
-  if (!opts.igniteOpts.manualConnect) {
-    this.igniteClient.connect(this.igniteClientConfiguration);
-  }
+  this.igniteClient || (this.igniteClient = opts.igniteClient);
 }
 
 function getTable(mapper) {
@@ -426,9 +388,6 @@ IgniteAdapter.extend = jsData.utils.extend;
 jsDataAdapter.Adapter.extend({
   constructor: IgniteAdapter,
 
-  connect: async function connect() {
-    return this.igniteClient.connect(this.igniteClientConfiguration);
-  },
   _count: async function _count(mapper, query, opts) {
     opts || (opts = {});
     query || (query = {});

@@ -1,5 +1,4 @@
-
-import {Adapter} from 'js-data-adapter'
+mport { Adapter } from 'js-data-adapter'
 
 interface IDict {
   [key: string]: any;

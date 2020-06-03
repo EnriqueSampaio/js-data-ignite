@@ -8,8 +8,6 @@ import toString from 'lodash.tostring'
 import snakeCase from 'lodash.snakecase'
 
 const IgniteClient = require('apache-ignite-client')
-
-const IgniteClientConfiguration = IgniteClient.IgniteClientConfiguration
 const SqlFieldsQuery = IgniteClient.SqlFieldsQuery
 
 const DEFAULTS = {}
@@ -181,7 +179,7 @@ export function IgniteAdapter (opts) {
   utils.classCallCheck(this, IgniteAdapter)
   opts || (opts = {})
   opts.knexOpts || (opts.knexOpts = {})
-  opts.igniteOpts || (opts.igniteOpts = {})
+  opts.igniteClient || (opts.igniteClient = {})
   utils.fillIn(opts, DEFAULTS)
 
   Object.defineProperties(this, {
@@ -217,24 +215,7 @@ export function IgniteAdapter (opts) {
   this.operators || (this.operators = {})
   utils.fillIn(this.operators, OPERATORS)
 
-  // this.igniteOpts || (this.igniteOpts = {})
-
-  this.igniteClient || (this.igniteClient = new IgniteClient(opts.igniteOpts.listener))
-
-  if (opts.igniteOpts.debug) {
-    this.igniteClient.setDebug(true)
-  }
-
-  const igniteClientConfiguration = new IgniteClientConfiguration(...opts.igniteOpts.endpoints)
-    .setUserName(opts.igniteOpts.username)
-    .setPassword(opts.igniteOpts.password)
-    .setConnectionOptions(opts.igniteOpts.useTLS, opts.igniteOpts.connectionOptions)
-
-  this.igniteClientConfiguration || (this.igniteClientConfiguration = igniteClientConfiguration)
-
-  if (!opts.igniteOpts.manualConnect) {
-    this.igniteClient.connect(this.igniteClientConfiguration)
-  }
+  this.igniteClient || (this.igniteClient = opts.igniteClient)
 }
 
 function getTable (mapper) {
@@ -333,10 +314,6 @@ IgniteAdapter.extend = utils.extend
 
 Adapter.extend({
   constructor: IgniteAdapter,
-
-  async connect () {
-    return this.igniteClient.connect(this.igniteClientConfiguration)
-  },
 
   async _count (mapper, query, opts) {
     opts || (opts = {})
