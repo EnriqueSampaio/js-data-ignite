@@ -83,7 +83,7 @@ var slicedToArray = function () {
   };
 }();
 
-var IgniteClient = require('apache-ignite-client');
+var IgniteClient = require('nodejs-thin-client');
 var SqlFieldsQuery = IgniteClient.SqlFieldsQuery;
 
 var DEFAULTS = {};

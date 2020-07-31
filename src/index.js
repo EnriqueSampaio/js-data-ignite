@@ -7,7 +7,7 @@ import {
 import toString from 'lodash.tostring'
 import snakeCase from 'lodash.snakecase'
 
-const IgniteClient = require('apache-ignite-client')
+const IgniteClient = require('nodejs-thin-client')
 const SqlFieldsQuery = IgniteClient.SqlFieldsQuery
 
 const DEFAULTS = {}
