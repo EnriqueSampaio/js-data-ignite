@@ -255,6 +255,8 @@ function escapeData (mapper, props, knexInstance) {
         case 'string|null':
           props[field] = props[field] ? knexInstance.raw(`'${props[field].replace(/'/g, "''").replace(/\?/g, '\\?')}'`) : null
           break
+        case 'boolean':
+          props[field] = props[field] === false ? knexInstance.raw('FALSE') : props[field] === true ? knexInstance.raw('TRUE') : null
       }
     }
   }
