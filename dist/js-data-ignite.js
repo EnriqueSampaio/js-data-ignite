@@ -464,15 +464,15 @@ jsDataAdapter.Adapter.extend({
     query || (query = {});
     opts || (opts = {});
 
-    var records = await this._findAll(mapper, query, opts);
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).del().toString();
 
     var destroyAllQuery = new SqlFieldsQuery(sqlText);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyAllQuery);
+    console.log(sqlText);
 
-    return records;
+    return [[], {}];
   },
   _find: async function _find(mapper, id, opts) {
     opts || (opts = {});

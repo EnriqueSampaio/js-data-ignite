@@ -402,7 +402,6 @@ Adapter.extend({
     query || (query = {})
     opts || (opts = {})
 
-    const records = await this._findAll(mapper, query, opts)
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts)
       .del()
@@ -411,8 +410,9 @@ Adapter.extend({
     const destroyAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(destroyAllQuery)
+    console.log(sqlText)
 
-    return records
+    return [[], {}]
   },
 
   async _find (mapper, id, opts) {
