@@ -470,7 +470,6 @@ jsDataAdapter.Adapter.extend({
     var destroyAllQuery = new SqlFieldsQuery(sqlText);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyAllQuery);
-    console.log(sqlText);
 
     return [[], {}];
   },
