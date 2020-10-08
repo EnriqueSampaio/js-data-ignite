@@ -278,7 +278,7 @@ function translateToKnex (mapper, values) {
     if (fields.hasOwnProperty(field)) {
       switch (fields[field].type) {
         case 'array':
-          result[field] = JSON.parse(values[i++].replace(/\\/g, ''))
+          result[field] = values[i + 1] ? JSON.parse(values[i++].replace(/\\/g, '')) : values[i++]
           break
         default:
           result[field] = values[i++]
