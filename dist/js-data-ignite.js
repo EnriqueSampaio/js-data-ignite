@@ -318,7 +318,8 @@ function escapeData(mapper, props, knexInstance) {
       var types = Array.isArray(mapper.schema.properties[field].type) ? mapper.schema.properties[field].type.join('|') : mapper.schema.properties[field].type;
       switch (types) {
         case 'array':
-          props[field] = knexInstance.raw('\'' + JSON.stringify(props[field]) + '\'');
+        case 'array|null':
+          props[field] = props[field] ? knexInstance.raw('\'' + JSON.stringify(props[field]) + '\'') : null;
           break;
         case 'date':
         case 'date|null':
@@ -349,9 +350,11 @@ function translateToKnex(mapper, values) {
 
   for (var field in fields) {
     if (fields.hasOwnProperty(field)) {
-      switch (fields[field].type) {
+      var types = Array.isArray(fields[field].type) ? fields[field].type.join('|') : fields[field].type;
+      switch (types) {
         case 'array':
-          result[field] = values[i + 1].length ? JSON.parse(values[i++].replace(/\\/g, '')) : [];
+        case 'array|null':
+          result[field] = values[i] ? JSON.parse(values[i++].replace(/\\/g, '')) : values[i++];
           break;
         default:
           result[field] = values[i++];
