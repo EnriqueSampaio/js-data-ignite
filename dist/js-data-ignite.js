@@ -171,6 +171,9 @@ var OPERATORS = {
   'like': function like(query, field, value, isOr) {
     return query[getWhereType(isOr)](field, 'like', value);
   },
+  'notLike': function notLike(query, field, value, isOr) {
+    return query[getWhereType(isOr)](field, 'not like', value);
+  },
   'likei': function likei(query, field, value, isOr, knexInstance) {
     return query[getWhereType(isOr)](knexInstance.raw('LOWER(' + field + ')'), 'like', knexInstance.raw('LOWER(\'' + value + '\')'));
   },
