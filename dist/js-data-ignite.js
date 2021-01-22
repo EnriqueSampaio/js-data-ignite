@@ -160,7 +160,7 @@ var OPERATORS = {
     return query[getWhereType(isOr)](field, 'in', value);
   },
   'notIn': function notIn(query, field, value, isOr) {
-    return query[isOr ? 'orNotIn' : 'notIn'](field, value);
+    return query[isOr ? 'orNotIn' : 'notIn'](field, 'not in', value);
   },
   'contains': function contains(query, field, value, isOr) {
     throw new Error('contains not supported!');
