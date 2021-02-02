@@ -527,10 +527,10 @@ Adapter.extend({
     query || (query = {})
     opts || (opts = {})
 
-    const ids = []
+    console.log(props)
+
     if (mapper.compositePk) {
       for (const field of mapper.compositePk) {
-        ids.push(props[field])
         delete props[field]
       }
     } else {
@@ -541,19 +541,24 @@ Adapter.extend({
       }
     }
 
+    console.log(props)
+
     const escapedProps = escapeData(mapper, props, this.knex)
-
-    const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
-
-    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
-
-    console.log(sqlText)
-
-    const updateAllQuery = new SqlFieldsQuery(sqlText)
-    const cache = await this.igniteClient.getCache(getCacheName(mapper))
-    await cache.query(updateAllQuery)
+    console.log(escapedProps)
 
     return [[], {}]
+
+    // const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
+
+    // const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
+
+    // console.log(sqlText)
+
+    // const updateAllQuery = new SqlFieldsQuery(sqlText)
+    // const cache = await this.igniteClient.getCache(getCacheName(mapper))
+    // await cache.query(updateAllQuery)
+
+    // return [[], {}]
   },
 
   async _updateMany (mapper, records, opts) {

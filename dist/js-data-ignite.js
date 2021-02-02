@@ -598,7 +598,8 @@ jsDataAdapter.Adapter.extend({
     query || (query = {});
     opts || (opts = {});
 
-    var ids = [];
+    console.log(props);
+
     if (mapper.compositePk) {
       var _iteratorNormalCompletion2 = true;
       var _didIteratorError2 = false;
@@ -608,7 +609,6 @@ jsDataAdapter.Adapter.extend({
         for (var _iterator2 = mapper.compositePk[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
           var field = _step2.value;
 
-          ids.push(props[field]);
           delete props[field];
         }
       } catch (err) {
@@ -633,19 +633,24 @@ jsDataAdapter.Adapter.extend({
       }
     }
 
+    console.log(props);
+
     var escapedProps = escapeData(mapper, props, this.knex);
-
-    var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
-
-    var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString();
-
-    console.log(sqlText);
-
-    var updateAllQuery = new SqlFieldsQuery(sqlText);
-    var cache = await this.igniteClient.getCache(getCacheName(mapper));
-    await cache.query(updateAllQuery);
+    console.log(escapedProps);
 
     return [[], {}];
+
+    // const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
+
+    // const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
+
+    // console.log(sqlText)
+
+    // const updateAllQuery = new SqlFieldsQuery(sqlText)
+    // const cache = await this.igniteClient.getCache(getCacheName(mapper))
+    // await cache.query(updateAllQuery)
+
+    // return [[], {}]
   },
   _updateMany: async function _updateMany(mapper, records, opts) {
     var _this2 = this;
