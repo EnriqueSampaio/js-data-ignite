@@ -523,33 +523,37 @@ Adapter.extend({
   },
 
   async _updateAll (mapper, props, query, opts) {
-    const idAttribute = mapper.idAttribute
     props || (props = {})
     query || (query = {})
     opts || (opts = {})
 
-    props = props.map((singleProps) => {
-      delete singleProps[idAttribute]
-      singleProps = escapeData(mapper, singleProps, this.knex)
-      return singleProps
-    })
+    const ids = []
+    if (mapper.compositePk) {
+      for (const field of mapper.compositePk) {
+        ids.push(props[field])
+        delete props[field]
+      }
+    } else {
+      for (const field in props) {
+        if (props.hasOwnProperty(field) && field === mapper.idAttribute) {
+          delete props[field]
+        }
+      }
+    }
 
-    const result = await this._findAll(mapper, query, opts)
+    const escapedProps = escapeData(mapper, props, this.knex)
 
-    const records = result[0]
-    const ids = records.map((record) => record[idAttribute])
     const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
 
-    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString()
+    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
+
+    console.log(sqlText)
 
     const updateAllQuery = new SqlFieldsQuery(sqlText)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateAllQuery)
 
-    const _query = { where: {} }
-
-    _query.where[idAttribute] = { 'in': ids }
-    return this._findAll(mapper, _query, opts)
+    return [[], {}]
   },
 
   async _updateMany (mapper, records, opts) {

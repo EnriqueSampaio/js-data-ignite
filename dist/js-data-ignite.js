@@ -594,47 +594,68 @@ jsDataAdapter.Adapter.extend({
     return mapper.compositePk ? this._find(mapper, ids, opts) : this._find(mapper, id, opts);
   },
   _updateAll: async function _updateAll(mapper, props, query, opts) {
-    var _this2 = this;
-
-    var idAttribute = mapper.idAttribute;
     props || (props = {});
     query || (query = {});
     opts || (opts = {});
 
-    props = props.map(function (singleProps) {
-      delete singleProps[idAttribute];
-      singleProps = escapeData(mapper, singleProps, _this2.knex);
-      return singleProps;
-    });
+    var ids = [];
+    if (mapper.compositePk) {
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
 
-    var result = await this._findAll(mapper, query, opts);
+      try {
+        for (var _iterator2 = mapper.compositePk[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var field = _step2.value;
 
-    var records = result[0];
-    var ids = records.map(function (record) {
-      return record[idAttribute];
-    });
+          ids.push(props[field]);
+          delete props[field];
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+    } else {
+      for (var _field2 in props) {
+        if (props.hasOwnProperty(_field2) && _field2 === mapper.idAttribute) {
+          delete props[_field2];
+        }
+      }
+    }
+
+    var escapedProps = escapeData(mapper, props, this.knex);
+
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
 
-    var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(props).toString();
+    var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString();
+
+    console.log(sqlText);
 
     var updateAllQuery = new SqlFieldsQuery(sqlText);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateAllQuery);
 
-    var _query = { where: {} };
-
-    _query.where[idAttribute] = { 'in': ids };
-    return this._findAll(mapper, _query, opts);
+    return [[], {}];
   },
   _updateMany: async function _updateMany(mapper, records, opts) {
-    var _this3 = this;
+    var _this2 = this;
 
     var idAttribute = mapper.idAttribute;
     records || (records = []);
     opts || (opts = {});
 
     var tasks = records.map(function (record) {
-      return _this3._update(mapper, record[idAttribute], record, opts);
+      return _this2._update(mapper, record[idAttribute], record, opts);
     });
 
     return Promise.all(tasks).then(function (results) {
@@ -646,15 +667,15 @@ jsDataAdapter.Adapter.extend({
   compositePk: function compositePk(mapper, sqlBuilder, pkValues, knexInstance) {
     var query = {};
 
-    var _iteratorNormalCompletion2 = true;
-    var _didIteratorError2 = false;
-    var _iteratorError2 = undefined;
+    var _iteratorNormalCompletion3 = true;
+    var _didIteratorError3 = false;
+    var _iteratorError3 = undefined;
 
     try {
-      for (var _iterator2 = mapper.compositePk.entries()[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-        var _step2$value = slicedToArray(_step2.value, 2),
-            index = _step2$value[0],
-            field = _step2$value[1];
+      for (var _iterator3 = mapper.compositePk.entries()[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        var _step3$value = slicedToArray(_step3.value, 2),
+            index = _step3$value[0],
+            field = _step3$value[1];
 
         query[field] = pkValues[index];
         // switch (mapper.schema.properties[field].type) {
@@ -667,16 +688,16 @@ jsDataAdapter.Adapter.extend({
         // }
       }
     } catch (err) {
-      _didIteratorError2 = true;
-      _iteratorError2 = err;
+      _didIteratorError3 = true;
+      _iteratorError3 = err;
     } finally {
       try {
-        if (!_iteratorNormalCompletion2 && _iterator2.return) {
-          _iterator2.return();
+        if (!_iteratorNormalCompletion3 && _iterator3.return) {
+          _iterator3.return();
         }
       } finally {
-        if (_didIteratorError2) {
-          throw _iteratorError2;
+        if (_didIteratorError3) {
+          throw _iteratorError3;
         }
       }
     }
@@ -684,7 +705,7 @@ jsDataAdapter.Adapter.extend({
     return sqlBuilder.where(query);
   },
   applyWhereFromObject: function applyWhereFromObject(sqlBuilder, where, opts) {
-    var _this4 = this;
+    var _this3 = this;
 
     jsData.utils.forOwn(where, function (criteria, field) {
       if (!jsData.utils.isObject(criteria)) {
@@ -697,9 +718,9 @@ jsDataAdapter.Adapter.extend({
           operator = operator.substr(1);
           isOr = true;
         }
-        var predicateFn = _this4.getOperator(operator, opts);
+        var predicateFn = _this3.getOperator(operator, opts);
         if (predicateFn) {
-          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr, _this4.knex);
+          sqlBuilder = predicateFn(sqlBuilder, field, value, isOr, _this3.knex);
         } else {
           throw new Error('Operator ' + operator + ' not supported!');
         }
@@ -708,15 +729,15 @@ jsDataAdapter.Adapter.extend({
     return sqlBuilder;
   },
   applyWhereFromArray: function applyWhereFromArray(sqlBuilder, where, opts) {
-    var _this5 = this;
+    var _this4 = this;
 
     where.forEach(function (_where, i) {
       if (_where === 'and' || _where === 'or') {
         return;
       }
-      var self = _this5;
+      var self = _this4;
       var prev = where[i - 1];
-      var parser = jsData.utils.isArray(_where) ? _this5.applyWhereFromArray : _this5.applyWhereFromObject;
+      var parser = jsData.utils.isArray(_where) ? _this4.applyWhereFromArray : _this4.applyWhereFromObject;
       if (prev) {
         if (prev === 'or') {
           sqlBuilder = sqlBuilder.orWhere(function () {
