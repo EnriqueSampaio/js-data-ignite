@@ -541,6 +541,15 @@ Adapter.extend({
       }
     }
 
+    for (const field in props) {
+      if (Object.hasOwnProperty.call(props, field)) {
+        const element = props[field]
+        if (element === undefined) {
+          delete props[field]
+        }
+      }
+    }
+
     console.log(props)
 
     const escapedProps = escapeData(mapper, props, this.knex)
