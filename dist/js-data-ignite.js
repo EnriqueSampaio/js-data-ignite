@@ -644,11 +644,9 @@ jsDataAdapter.Adapter.extend({
 
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString();
 
-    console.log(sqlText);
-
-    // const updateAllQuery = new SqlFieldsQuery(sqlText)
-    // const cache = await this.igniteClient.getCache(getCacheName(mapper))
-    // await cache.query(updateAllQuery)
+    var updateAllQuery = new SqlFieldsQuery(sqlText);
+    var cache = await this.igniteClient.getCache(getCacheName(mapper));
+    await cache.query(updateAllQuery);
 
     return [[], {}];
   },
