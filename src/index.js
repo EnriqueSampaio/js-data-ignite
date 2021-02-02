@@ -527,8 +527,6 @@ Adapter.extend({
     query || (query = {})
     opts || (opts = {})
 
-    console.log(props)
-
     if (mapper.compositePk) {
       for (const field of mapper.compositePk) {
         delete props[field]
@@ -549,24 +547,18 @@ Adapter.extend({
       }
     }
 
-    console.log(props)
-
     const escapedProps = escapeData(mapper, props, this.knex)
-    console.log(escapedProps)
+    const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
 
-    return [[], {}]
+    const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
 
-    // const sqlBuilder = utils.isUndefined(opts.transaction) ? this.knex : opts.transaction
-
-    // const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
-
-    // console.log(sqlText)
+    console.log(sqlText)
 
     // const updateAllQuery = new SqlFieldsQuery(sqlText)
     // const cache = await this.igniteClient.getCache(getCacheName(mapper))
     // await cache.query(updateAllQuery)
 
-    // return [[], {}]
+    return [[], {}]
   },
 
   async _updateMany (mapper, records, opts) {
