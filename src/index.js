@@ -542,9 +542,8 @@ Adapter.extend({
     }
 
     for (const field in props) {
-      if (Object.hasOwnProperty.call(props, field)) {
-        const element = props[field]
-        if (element === undefined) {
+      if (pros.hasOwnProperty(field)) {
+        if (props[field] === undefined) {
           delete props[field]
         }
       }
