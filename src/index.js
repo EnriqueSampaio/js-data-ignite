@@ -552,11 +552,9 @@ Adapter.extend({
 
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
 
-    console.log(sqlText)
-
-    // const updateAllQuery = new SqlFieldsQuery(sqlText)
-    // const cache = await this.igniteClient.getCache(getCacheName(mapper))
-    // await cache.query(updateAllQuery)
+    const updateAllQuery = new SqlFieldsQuery(sqlText)
+    const cache = await this.igniteClient.getCache(getCacheName(mapper))
+    await cache.query(updateAllQuery)
 
     return [[], {}]
   },
