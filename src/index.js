@@ -542,7 +542,7 @@ Adapter.extend({
     }
 
     for (const field in props) {
-      if (pros.hasOwnProperty(field)) {
+      if (props.hasOwnProperty(field)) {
         if (props[field] === undefined) {
           delete props[field]
         }

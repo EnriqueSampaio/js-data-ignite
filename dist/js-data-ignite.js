@@ -633,6 +633,14 @@ jsDataAdapter.Adapter.extend({
       }
     }
 
+    for (var _field3 in props) {
+      if (props.hasOwnProperty(_field3)) {
+        if (props[_field3] === undefined) {
+          delete props[_field3];
+        }
+      }
+    }
+
     console.log(props);
 
     var escapedProps = escapeData(mapper, props, this.knex);
