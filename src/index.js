@@ -84,7 +84,7 @@ export const OPERATORS = {
     return query[getWhereType(isOr)](field, 'in', value)
   },
   'notIn': function (query, field, value, isOr) {
-    return query[isOr ? 'orNotIn' : 'notIn'](field, 'not in', value)
+    return query[getWhereType(isOr)](field, 'not in', value)
   },
   'contains': function (query, field, value, isOr) {
     throw new Error('contains not supported!')
