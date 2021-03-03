@@ -332,7 +332,7 @@ Adapter.extend({
       .count('* as count')
       .toString()
 
-    const countQuery = new SqlFieldsQuery(sqlText)
+    const countQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(countQuery)).getAll()
 
@@ -351,7 +351,7 @@ Adapter.extend({
       .insert(props)
       .toString()
 
-    const createQuery = new SqlFieldsQuery(sqlText)
+    const createQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(createQuery)
 
@@ -372,7 +372,7 @@ Adapter.extend({
       .insert(props)
       .toString()
 
-    const createQuery = new SqlFieldsQuery(sqlText)
+    const createQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(createQuery)
 
@@ -397,7 +397,7 @@ Adapter.extend({
       .del()
       .toString()
 
-    const destroyQuery = new SqlFieldsQuery(sqlText)
+    const destroyQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(destroyQuery)
 
@@ -413,7 +413,7 @@ Adapter.extend({
       .del()
       .toString()
 
-    const destroyAllQuery = new SqlFieldsQuery(sqlText)
+    const destroyAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(destroyAllQuery)
 
@@ -441,7 +441,7 @@ Adapter.extend({
 
     sqlText = sqlText.toString()
 
-    const findQuery = new SqlFieldsQuery(sqlText)
+    const findQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
 
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(findQuery)).getAll()
@@ -455,7 +455,7 @@ Adapter.extend({
 
     const sqlText = this.filterQuery(this.selectTable(mapper, opts), query, opts).toString()
 
-    const findAllQuery = new SqlFieldsQuery(sqlText)
+    const findAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
 
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const records = await (await cache.query(findAllQuery)).getAll()
@@ -478,7 +478,7 @@ Adapter.extend({
       .sum(`${field} as sum`)
       .toString()
 
-    const sumQuery = new SqlFieldsQuery(sqlText)
+    const sumQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     const result = await (await cache.query(sumQuery)).getAll()
 
@@ -515,7 +515,7 @@ Adapter.extend({
 
     sqlText = sqlText.update(props).toString()
 
-    const updateQuery = new SqlFieldsQuery(sqlText)
+    const updateQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateQuery)
 
@@ -552,7 +552,7 @@ Adapter.extend({
 
     const sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString()
 
-    const updateAllQuery = new SqlFieldsQuery(sqlText)
+    const updateAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true)
     const cache = await this.igniteClient.getCache(getCacheName(mapper))
     await cache.query(updateAllQuery)
 

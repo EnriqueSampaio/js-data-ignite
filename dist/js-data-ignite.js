@@ -403,7 +403,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).count('* as count').toString();
 
-    var countQuery = new SqlFieldsQuery(sqlText);
+    var countQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(countQuery)).getAll();
 
@@ -419,7 +419,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).insert(props).toString();
 
-    var createQuery = new SqlFieldsQuery(sqlText);
+    var createQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(createQuery);
 
@@ -439,7 +439,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).insert(props).toString();
 
-    var createQuery = new SqlFieldsQuery(sqlText);
+    var createQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(createQuery);
 
@@ -460,7 +460,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = sqlBuilder(getTable(mapper)).where(mapper.idAttribute, toString(id)).del().toString();
 
-    var destroyQuery = new SqlFieldsQuery(sqlText);
+    var destroyQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyQuery);
 
@@ -473,7 +473,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).del().toString();
 
-    var destroyAllQuery = new SqlFieldsQuery(sqlText);
+    var destroyAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(destroyAllQuery);
 
@@ -498,7 +498,7 @@ jsDataAdapter.Adapter.extend({
 
     sqlText = sqlText.toString();
 
-    var findQuery = new SqlFieldsQuery(sqlText);
+    var findQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
 
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(findQuery)).getAll();
@@ -511,7 +511,7 @@ jsDataAdapter.Adapter.extend({
 
     var sqlText = this.filterQuery(this.selectTable(mapper, opts), query, opts).toString();
 
-    var findAllQuery = new SqlFieldsQuery(sqlText);
+    var findAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
 
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var records = await (await cache.query(findAllQuery)).getAll();
@@ -531,7 +531,7 @@ jsDataAdapter.Adapter.extend({
     var sqlBuilder = jsData.utils.isUndefined(opts.transaction) ? this.knex : opts.transaction;
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).sum(field + ' as sum').toString();
 
-    var sumQuery = new SqlFieldsQuery(sqlText);
+    var sumQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     var result = await (await cache.query(sumQuery)).getAll();
 
@@ -587,7 +587,7 @@ jsDataAdapter.Adapter.extend({
 
     sqlText = sqlText.update(props).toString();
 
-    var updateQuery = new SqlFieldsQuery(sqlText);
+    var updateQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateQuery);
 
@@ -644,7 +644,7 @@ jsDataAdapter.Adapter.extend({
 
     var sqlText = this.filterQuery(sqlBuilder(getTable(mapper)), query, opts).update(escapedProps).toString();
 
-    var updateAllQuery = new SqlFieldsQuery(sqlText);
+    var updateAllQuery = new SqlFieldsQuery(sqlText).setCollocated(true);
     var cache = await this.igniteClient.getCache(getCacheName(mapper));
     await cache.query(updateAllQuery);
 
