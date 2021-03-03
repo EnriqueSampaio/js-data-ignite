@@ -52,6 +52,7 @@
     "nodejs-thin-client": "https://github.com/EnriqueSampaio/nodejs-thin-client.git"
   },
   "devDependencies": {
+    "@js-data/repo-tools": "^1.0.1",
     "babel-core": "6.26.0",
     "babel-eslint": "7.2.3",
     "babel-plugin-external-helpers": "6.22.0",
@@ -59,7 +60,6 @@
     "babel-plugin-transform-regenerator": "6.26.0",
     "babel-polyfill": "6.26.0",
     "babel-preset-es2015": "6.24.1",
-    "js-data-repo-tools": "1.0.0",
     "jsdoc": "3.5.4",
     "rollup": "0.47.6",
     "rollup-plugin-babel": "3.0.2",
