@@ -52,7 +52,6 @@
     "nodejs-thin-client": "https://github.com/EnriqueSampaio/nodejs-thin-client.git"
   },
   "devDependencies": {
-    "@js-data/repo-tools": "^1.0.1",
     "babel-core": "6.26.0",
     "babel-eslint": "7.2.3",
     "babel-plugin-external-helpers": "6.22.0",
